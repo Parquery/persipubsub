@@ -1,0 +1,4 @@
+sphinx>=1.8.2,<2
+sphinx-autodoc-typehints>=1.5.2
+sphinx-icontract>=2.0.0
+sphinx-rtd-theme>=0.4.2
