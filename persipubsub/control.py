@@ -44,8 +44,16 @@ class CTL:
     def prune_all_messages_for(self, sub_id: str):
         """Prune all messages of a subscriber."""
 
-    def set_hwm(self, size: int):
-        """Set high-water-mark limit."""
+    def set_hwm(self, msg_timeout: int = 500, max_msgs: int = 1024*64,
+                hwm_lmdb_size: int = 30 * 1024**3):
+        """
+        Set high-water-mark limit.
+
+        :param msg_timeout: time after which msg is classified as dangling msg
+        :param max_msgs: maximal amount of msg
+        :param hwm_lmdb_size: high water mark for total size of lmdb
+        :return:
+        """
 
     def set_overflow_strategy(self, strategy: bool = True):
         """
@@ -60,7 +68,15 @@ class CTL:
 
 class HighWaterMark:
 
-    def __init__(self, msg_timeout: int = 500, max_msgs: int = 1024*64, hwm_lmdb_size: int = 30 * 1024**3):
+    def __init__(self, msg_timeout: int = 500, max_msgs: int = 1024*64,
+                 hwm_lmdb_size: int = 30 * 1024**3):
+        """
+        Initialize.
+
+        :param msg_timeout: time after which msg is classified as dangling msg
+        :param max_msgs: maximal amount of msg
+        :param hwm_lmdb_size: high water mark for total size of lmdb
+        """
         self.msg_timeout = msg_timeout
         self.max_msgs = max_msgs
         self.hwm_lmdb_size = hwm_lmdb_size
