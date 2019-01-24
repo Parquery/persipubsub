@@ -15,11 +15,6 @@ here = os.path.abspath(os.path.dirname(__file__))  # pylint: disable=invalid-nam
 with open(os.path.join(here, 'README.rst'), encoding='utf-8') as fid:
     long_description = fid.read().strip()  # pylint: disable=invalid-name
 
-with open(os.path.join(here, 'requirements.txt'), encoding='utf-8') as fid:
-    install_requires = [
-        line for line in fid.read().splitlines() if line.strip()
-    ]
-
 setup(
     name=persipubsub_meta.__title__,
     version=persipubsub_meta.__version__,
@@ -39,7 +34,13 @@ setup(
     keywords=
     'persistent publisher subscriber lmdb MQ message queue thread-safe process-safe',
     packages=find_packages(exclude=['tests']),
-    install_requires=install_requires,
+    install_requires=[
+        # yapf: disable
+        'typing-extensions>=3.7.2',
+        'icontract>=2.0.1,<3',
+        'lmdb>=0.94,<1'
+        # yapf: enable
+    ],
     extras_require={
         'dev': [
             # yapf: disable
@@ -53,11 +54,13 @@ setup(
             'docutils>=0.14,<1',
             'isort>=4.3.4,<5',
             'pygments>=2.3.0,<3',
-            'logthis>=1.0.1,<2',
+            'twine>=1.12.1,<2',
+            'setuptools>=40.6.3,<41',
+            'wheel>=0.32.3,<1'
             # yapf: enable
         ]
     },
     py_modules=['persipubsub', 'persipubsub_meta'],
     include_package_data=True,
     package_data={"persipubsub": ["py.typed"]},
-    data_files=[('.', ['LICENSE', 'README.rst', 'requirements.txt'])])
+    data_files=[('.', ['LICENSE', 'README.rst'])])

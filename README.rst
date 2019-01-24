@@ -9,8 +9,8 @@ Why not ...
 
 persist-queue
 ^^^^^^^^^^^^^
-* `protobuf <https://github.com/peter-wangxu/persist-queue/>`_ messages can't
-  be send except if you deserialize it and serialize it with pickle.
+* `protobuf <https://developers.google.com/protocol-buffers/>`_ messages can't
+  be send with `persist-queue <https://github.com/peter-wangxu/persist-queue/>`_ except if you deserialize it and serialize it with pickle.
 * Offers not all functionality expected from a queue. Has put and get function
   which are basically only push and pop. So front/peak functionality is missing.
   So neither can multiple subscriber be implemented nor can't be guaranteed that
