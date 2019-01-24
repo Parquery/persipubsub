@@ -6,7 +6,6 @@ import unittest
 
 import temppathlib
 
-import messages.message_pb2
 import persipubsub.control
 import persipubsub.queue
 import persipubsub.subscriber
@@ -33,14 +32,12 @@ class TestSubscriber(unittest.TestCase):
             sub = persipubsub.subscriber.Sub()
             sub.init(sub_id="sub", config_pth=file)
 
-            msg = messages.message_pb2.SomeMessage()
-            msg.id = 1
-            msg.text = "Hello World!"
-            queue.put(msg=msg.SerializeToString(), sub_list=["sub"])
+            msg = "Hello World!".encode(tests.ENCODING)
+            queue.put(msg=msg, sub_list=["sub"])
 
             with sub.receive(timeout=1) as received_msg:
                 self.assertIsNotNone(received_msg)
-                self.assertEqual(msg.SerializeToString(), received_msg)
+                self.assertEqual(msg, received_msg)
 
     def test_timeout_subscriber(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:

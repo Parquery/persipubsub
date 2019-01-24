@@ -7,7 +7,6 @@ import unittest
 import lmdb
 import temppathlib
 
-import messages.message_pb2
 import persipubsub.control
 import persipubsub.publisher
 import persipubsub.queue
@@ -34,10 +33,8 @@ class TestPublisher(unittest.TestCase):
             pub = persipubsub.publisher.Pub()
             pub.init(pub_id="pub", config_pth=file)
 
-            msg = messages.message_pb2.SomeMessage()
-            msg.id = 1
-            msg.text = "Hello World!"
-            pub.send(msg=msg.SerializeToString())
+            msg = "Hello world!".encode(tests.ENCODING)
+            pub.send(msg=msg)
 
             subscriber = "sub".encode(tests.ENCODING)
             with queue.env.begin(write=False) as txn:
@@ -53,7 +50,7 @@ class TestPublisher(unittest.TestCase):
                     key=tests.DATA_DB, txn=txn, create=False)
                 item = txn.get(key=key, db=data_db)
                 self.assertIsNotNone(item)
-                self.assertEqual(msg.SerializeToString(), item)
+                self.assertEqual(msg, item)
 
     def test_send_to_nonexisting_db(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:

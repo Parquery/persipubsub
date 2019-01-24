@@ -7,7 +7,6 @@ import unittest
 
 import temppathlib
 
-import messages.message_pb2
 import persipubsub.control
 import persipubsub.queue
 import tests
@@ -40,9 +39,7 @@ class TestQueue(unittest.TestCase):
 
     def test_put_to_single_subscriber(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            msg = messages.message_pb2.SomeMessage()
-            msg.id = 1
-            msg.text = "I'm a protobuf message."
+            msg = "I'm a protobuf message.".encode(tests.ENCODING)
 
             subscriber = "sub"
 
@@ -56,7 +53,7 @@ class TestQueue(unittest.TestCase):
             persipubsub.control.initialize_all_dbs(config_pth=file)
             queue = persipubsub.queue.Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-            queue.put(msg=msg.SerializeToString(), sub_list=[subscriber])
+            queue.put(msg=msg, sub_list=[subscriber])
 
             with queue.env.begin() as txn:
                 self.assertIsNotNone(
@@ -75,7 +72,7 @@ class TestQueue(unittest.TestCase):
 
                 value = txn.get(key=key, db=data_db)
                 self.assertIsNotNone(value)
-                self.assertEqual(msg.SerializeToString(), value)
+                self.assertEqual(msg, value)
 
     def test_put_multiple_subscriber(self):
         # TODO(snaji):
@@ -126,9 +123,7 @@ class TestQueue(unittest.TestCase):
 
     def test_front(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            msg = messages.message_pb2.SomeMessage()
-            msg.id = 1
-            msg.text = "I'm a protobuf message."
+            msg = "I'm a protobuf message.".encode(tests.ENCODING)
 
             subscriber = "sub"
 
@@ -144,19 +139,17 @@ class TestQueue(unittest.TestCase):
             queue = persipubsub.queue.Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
             # TODO(snaji): replace with lmdb.env statements?
-            queue.put(msg=msg.SerializeToString(), sub_list=[subscriber])
+            queue.put(msg=msg, sub_list=[subscriber])
 
             # pylint: disable=assignment-from-none
             # pylint: disable=assignment-from-no-return
             received_msg = queue.front(sub_id=subscriber)
             self.assertIsNotNone(received_msg)
-            self.assertEqual(msg.SerializeToString(), received_msg)
+            self.assertEqual(msg, received_msg)
 
     def test_pop(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            msg = messages.message_pb2.SomeMessage()
-            msg.id = 1
-            msg.text = "I'm a protobuf message."
+            msg = "I'm a protobuf message.".encode(tests.ENCODING)
 
             subscriber = "sub"
 
@@ -172,7 +165,7 @@ class TestQueue(unittest.TestCase):
             queue = persipubsub.queue.Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
             # TODO(snaji): replace with lmdb.env statements?
-            queue.put(msg=msg.SerializeToString(), sub_list=[subscriber])
+            queue.put(msg=msg, sub_list=[subscriber])
 
             # pylint: disable=assignment-from-none
             # pylint: disable=assignment-from-no-return
@@ -205,9 +198,6 @@ class TestQueue(unittest.TestCase):
 
     def test_pop_queue_empty(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            msg = messages.message_pb2.SomeMessage()
-            msg.id = 1
-            msg.text = "I'm a protobuf message."
 
             subscriber = "sub"
 

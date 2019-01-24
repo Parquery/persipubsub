@@ -56,7 +56,8 @@ setup(
             'pygments>=2.3.0,<3',
             'twine>=1.12.1,<2',
             'setuptools>=40.6.3,<41',
-            'wheel>=0.32.3,<1'
+            'wheel>=0.32.3,<1',
+            'temppathlib>=1.0.3,<2'
             # yapf: enable
         ]
     },
