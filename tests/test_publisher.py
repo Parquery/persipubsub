@@ -13,6 +13,7 @@ import persipubsub.queue
 import tests
 
 # pylint: disable=missing-docstring
+# pylint: disable=protected-access
 
 
 class TestPublisher(unittest.TestCase):
@@ -27,7 +28,7 @@ class TestPublisher(unittest.TestCase):
                 json.dump(config, file_object)
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
             pub = persipubsub.publisher.Pub()
@@ -62,7 +63,7 @@ class TestPublisher(unittest.TestCase):
                 json.dump(config, file_object)
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
             pub = persipubsub.publisher.Pub()

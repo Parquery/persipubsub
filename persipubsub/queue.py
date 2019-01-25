@@ -23,7 +23,7 @@ class Strategy(enum.Enum):
     prune_last = 1
 
 
-def parse_strategy(strategy: str) -> Strategy:
+def _parse_strategy(strategy: str) -> Strategy:
     """
     Parse overflow strategy.
 
@@ -60,7 +60,7 @@ class HighWaterMark:
             if hwm_lmdb_size_bytes is None else hwm_lmdb_size_bytes  # type: int
 
 
-def initialize_environment(
+def _initialize_environment(
         queue_dir: pathlib.Path,
         max_reader_num: int = 1024,
         max_db_num: int = 1024,
@@ -88,7 +88,7 @@ def initialize_environment(
     return env
 
 
-def prune_dangling_messages_for(queue: 'Queue', sub_list: List[str]) -> None:
+def _prune_dangling_messages_for(queue: '_Queue', sub_list: List[str]) -> None:
     """
     Prune all dangling messages for subscribers of a queue from lmdb.
 
@@ -141,7 +141,7 @@ def prune_dangling_messages_for(queue: 'Queue', sub_list: List[str]) -> None:
                 txn.delete(key=key, db=sub_db)
 
 
-class Queue:
+class _Queue:
     """
     Queue messages persistently from many publishers for many subscribers.
 
@@ -195,7 +195,7 @@ class Queue:
         queue_dir = queue_dir if isinstance(queue_dir, pathlib.Path) \
             else pathlib.Path(queue_dir)
 
-        self.env = initialize_environment(
+        self.env = _initialize_environment(
             queue_dir=queue_dir,
             max_reader_num=max_reader_num,
             max_db_num=max_db_num,
@@ -221,11 +221,11 @@ class Queue:
             hwm_lmdb_size_bytes=hwm['HWM_LMDB_SIZE_BYTES'])
 
         assert isinstance(hwm["strategy"], str)
-        self.strategy = parse_strategy(hwm["strategy"])
+        self.strategy = _parse_strategy(hwm["strategy"])
 
         self.sub_list = queue["subscribers"]
 
-    def __enter__(self) -> 'Queue':
+    def __enter__(self) -> '_Queue':
         """Enter the context and give the queue prepared in the constructor."""
         return self
 
@@ -377,7 +377,7 @@ class Queue:
 
         :return:
         """
-        prune_dangling_messages_for(queue=self, sub_list=self.sub_list)
+        _prune_dangling_messages_for(queue=self, sub_list=self.sub_list)
 
     def check_current_lmdb_size(self) -> int:
         """

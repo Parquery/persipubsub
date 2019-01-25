@@ -22,7 +22,7 @@ class Pub:
     """
 
     pub_id = None  # type: str
-    queue = None  # type: persipubsub.queue.Queue
+    queue = None  # type: persipubsub.queue._Queue
     sub_list = None  # type: List[str]
     autosync = None  # type: bool
 
@@ -45,7 +45,7 @@ class Pub:
         config = persipubsub.get_config(path=config_pth)
         publisher = config[pub_id]
         queue_dir = publisher["out_queue"]
-        self.queue = persipubsub.queue.Queue()
+        self.queue = persipubsub.queue._Queue()  # pylint: disable=protected-access
         self.queue.init(config_pth=config_pth, queue_dir=queue_dir)
         assert isinstance(publisher["subscribers"], List)
         self.sub_list = publisher["subscribers"]  # type: List[str]

@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Union
 
 import persipubsub.queue
 
+# pylint: disable=protected-access
+
 
 def initialize_all_dbs(config_pth: Union[pathlib.Path, str]) -> None:
     """
@@ -20,7 +22,7 @@ def initialize_all_dbs(config_pth: Union[pathlib.Path, str]) -> None:
         if not queue_dir.exists():
             queue_dir.mkdir(parents=True, exist_ok=True)
         sub_list = values["subscribers"]
-        queue = persipubsub.queue.Queue()
+        queue = persipubsub.queue._Queue()
         queue.init(
             config_pth=config_pth,
             queue_dir=queue_dir,
@@ -29,7 +31,7 @@ def initialize_all_dbs(config_pth: Union[pathlib.Path, str]) -> None:
             max_db_size_bytes=values["max_db_size_bytes"])
 
         for sub in sub_list:
-            add_sub(sub_id=sub, queue=queue)
+            _add_sub(sub_id=sub, queue=queue)
 
 
 def clear_all_subs(config_pth: Union[pathlib.Path, str]) -> None:
@@ -45,18 +47,18 @@ def clear_all_subs(config_pth: Union[pathlib.Path, str]) -> None:
         if not queue_dir.exists():
             queue_dir.mkdir(parents=True, exist_ok=True)
         sub_list = values["subscribers"]  # type: List[str]
-        queue = persipubsub.queue.Queue()
+        queue = persipubsub.queue._Queue()
         queue.init(
             config_pth=config_pth,
             queue_dir=queue_dir,
             max_reader_num=values["max_reader_num"],
             max_db_num=values["max_db_num"],
             max_db_size_bytes=values["max_db_size_bytes"])
-        clear_all_subs_for(queue=queue, sub_list=sub_list)
+        _clear_all_subs_for(queue=queue, sub_list=sub_list)
 
 
-def clear_all_subs_for(queue: persipubsub.queue.Queue,
-                       sub_list: List[str]) -> None:
+def _clear_all_subs_for(queue: persipubsub.queue._Queue,
+                        sub_list: List[str]) -> None:
     """
     Clear all subscriber and delete all messages for one queue.
 
@@ -80,7 +82,7 @@ def clear_all_subs_for(queue: persipubsub.queue.Queue,
             txn.drop(db=data_db, delete=False)
 
 
-def add_sub(sub_id: str, queue: persipubsub.queue.Queue) -> None:
+def _add_sub(sub_id: str, queue: persipubsub.queue._Queue) -> None:
     """
     Add a subscriber and create its lmdb.
 
@@ -92,7 +94,7 @@ def add_sub(sub_id: str, queue: persipubsub.queue.Queue) -> None:
             key=persipubsub.encoding(sub_id), txn=txn, create=True)
 
 
-def remove_sub(sub_id: str, queue: persipubsub.queue.Queue) -> None:
+def _remove_sub(sub_id: str, queue: persipubsub.queue._Queue) -> None:
     """
     Remove a subscriber and delete all its messages.
 
@@ -137,18 +139,19 @@ def prune_dangling_messages(config_pth: Union[pathlib.Path, str]) -> None:
         if not queue_dir.exists():
             queue_dir.mkdir(parents=True, exist_ok=True)
         sub_list = values["subscribers"]  # type: List[str]
-        queue = persipubsub.queue.Queue()
+        queue = persipubsub.queue._Queue()
         queue.init(
             config_pth=config_pth,
             queue_dir=queue_dir,
             max_reader_num=values["max_reader_num"],
             max_db_num=values["max_db_num"],
             max_db_size_bytes=values["max_db_size_bytes"])
-        persipubsub.queue.prune_dangling_messages_for(
+        persipubsub.queue._prune_dangling_messages_for(
             queue=queue, sub_list=sub_list)
 
 
-def prune_all_messages_for(sub_id: str, queue: persipubsub.queue.Queue) -> None:
+def _prune_all_messages_for(sub_id: str,
+                            queue: persipubsub.queue._Queue) -> None:
     """
     Prune all messages of a subscriber.
 

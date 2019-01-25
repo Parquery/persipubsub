@@ -23,7 +23,7 @@ class Sub:
     """
 
     sub_id = None  # type: str
-    queue = None  # type: persipubsub.queue.Queue
+    queue = None  # type: persipubsub.queue._Queue
 
     def __init__(self) -> None:
         """Initialize class object."""
@@ -40,7 +40,7 @@ class Sub:
         config = persipubsub.get_config(path=config_pth)
         subscriber = config[sub_id]
         queue_dir = subscriber["in_queue"]
-        self.queue = persipubsub.queue.Queue()
+        self.queue = persipubsub.queue._Queue()  # pylint: disable=protected-access
         self.queue.init(config_pth=config_pth, queue_dir=queue_dir)
 
     def __enter__(self) -> 'Sub':
@@ -74,9 +74,9 @@ class Sub:
             pass
 
         if msg is not None:
-            self.pop()
+            self._pop()
 
-    def pop(self) -> None:
+    def _pop(self) -> None:
         """Pop a message from the subscriber's lmdb."""
         self.queue.pop(sub_id=self.sub_id)
 

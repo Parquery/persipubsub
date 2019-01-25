@@ -12,12 +12,13 @@ import persipubsub.queue
 import tests
 
 # pylint: disable=missing-docstring
+# pylint: disable=protected-access
 
 
 class TestQueue(unittest.TestCase):
     def test_initialize_environment(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            env = persipubsub.queue.initialize_environment(
+            env = persipubsub.queue._initialize_environment(
                 queue_dir=tmp_dir.path)
 
             self.assertDictEqual({
@@ -51,7 +52,7 @@ class TestQueue(unittest.TestCase):
                 json.dump(config, file_object)
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
             queue.put(msg=msg, sub_list=[subscriber])
 
@@ -89,10 +90,10 @@ class TestQueue(unittest.TestCase):
                 json.dump(config, file_object)
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
-            persipubsub.control.add_sub('another_sub', queue=queue)
+            persipubsub.control._add_sub('another_sub', queue=queue)
 
             queue.put(msg=msg, sub_list=sub_list)
 
@@ -139,7 +140,7 @@ class TestQueue(unittest.TestCase):
                 json.dump(config, file_object)
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
             msg = "I'm a message".encode(tests.ENCODING)
@@ -185,7 +186,7 @@ class TestQueue(unittest.TestCase):
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
             queue.put(msg=msg, sub_list=[subscriber])
 
@@ -210,7 +211,7 @@ class TestQueue(unittest.TestCase):
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
             queue.put(msg=msg, sub_list=[subscriber])
 
@@ -257,7 +258,7 @@ class TestQueue(unittest.TestCase):
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
             self.assertRaises(RuntimeError, queue.pop, sub_id=subscriber)
@@ -273,7 +274,7 @@ class TestQueue(unittest.TestCase):
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
 
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
@@ -300,7 +301,7 @@ class TestQueue(unittest.TestCase):
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
 
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
@@ -331,7 +332,7 @@ class TestQueue(unittest.TestCase):
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
 
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
@@ -361,7 +362,7 @@ class TestQueue(unittest.TestCase):
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
 
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
             queue.hwm.msg_timeout_secs = tests.TEST_MSG_TIMEOUT
@@ -387,7 +388,7 @@ class TestQueue(unittest.TestCase):
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
 
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
             queue.strategy = persipubsub.queue.Strategy.prune_first
@@ -421,7 +422,7 @@ class TestQueue(unittest.TestCase):
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
 
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
             queue.strategy = persipubsub.queue.Strategy.prune_last

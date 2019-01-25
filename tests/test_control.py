@@ -13,6 +13,7 @@ import persipubsub.queue
 import tests
 
 # pylint: disable=missing-docstring
+# pylint: disable=protected-access
 
 
 class TestControl(unittest.TestCase):
@@ -27,7 +28,7 @@ class TestControl(unittest.TestCase):
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
             expected_db_keys = [b'data_db', b'meta_db', b'pending_db', b'sub']
@@ -50,11 +51,11 @@ class TestControl(unittest.TestCase):
             with open(file=file.as_posix(), mode='wt') as file_object:
                 json.dump(config, file_object)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
-            persipubsub.control.add_sub(sub_id="sub1", queue=queue)
-            persipubsub.control.add_sub(sub_id="sub2", queue=queue)
+            persipubsub.control._add_sub(sub_id="sub1", queue=queue)
+            persipubsub.control._add_sub(sub_id="sub2", queue=queue)
 
             expected_db_keys = [
                 b'data_db', b'meta_db', b'pending_db', b'sub1', b'sub2'
@@ -78,12 +79,12 @@ class TestControl(unittest.TestCase):
             with open(file=file.as_posix(), mode='wt') as file_object:
                 json.dump(config, file_object)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
-            persipubsub.control.add_sub(sub_id="sub1", queue=queue)
-            persipubsub.control.add_sub(sub_id="sub2", queue=queue)
-            persipubsub.control.remove_sub(sub_id="sub2", queue=queue)
+            persipubsub.control._add_sub(sub_id="sub1", queue=queue)
+            persipubsub.control._add_sub(sub_id="sub2", queue=queue)
+            persipubsub.control._remove_sub(sub_id="sub2", queue=queue)
 
             expected_db_keys = [b'data_db', b'meta_db', b'pending_db', b'sub1']
             db_keys = []  # type: List[bytes]
@@ -105,7 +106,7 @@ class TestControl(unittest.TestCase):
             with open(file=file.as_posix(), mode='wt') as file_object:
                 json.dump(config, file_object)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
@@ -134,7 +135,7 @@ class TestControl(unittest.TestCase):
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
             queue.hwm.msg_timeout_secs = tests.TEST_MSG_TIMEOUT
 
@@ -229,7 +230,7 @@ class TestControl(unittest.TestCase):
             with open(file=file.as_posix(), mode='wt') as file_object:
                 json.dump(config, file_object)
 
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
@@ -245,7 +246,7 @@ class TestControl(unittest.TestCase):
                 sub_stat = txn.stat(db=sub_db)
                 self.assertEqual(2, sub_stat['entries'])
 
-            persipubsub.control.prune_all_messages_for(
+            persipubsub.control._prune_all_messages_for(
                 sub_id="sub", queue=queue)
 
             with queue.env.begin(write=False) as txn:

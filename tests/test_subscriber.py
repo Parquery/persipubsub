@@ -12,6 +12,7 @@ import persipubsub.subscriber
 import tests
 
 # pylint: disable=missing-docstring
+# pylint: disable=protected-access
 
 
 class TestSubscriber(unittest.TestCase):
@@ -25,7 +26,7 @@ class TestSubscriber(unittest.TestCase):
                 json.dump(config, file_object)
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
             sub = persipubsub.subscriber.Sub()
@@ -48,7 +49,7 @@ class TestSubscriber(unittest.TestCase):
                 json.dump(config, file_object)
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
             sub = persipubsub.subscriber.Sub()
@@ -83,7 +84,7 @@ class TestSubscriber(unittest.TestCase):
                 json.dump(config, file_object)
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
             sub = persipubsub.subscriber.Sub()
@@ -95,7 +96,7 @@ class TestSubscriber(unittest.TestCase):
             msg2 = "I'm a message too".encode(tests.ENCODING)
             queue.put(msg=msg2, sub_list=queue.sub_list)
 
-            sub.pop()
+            sub._pop()
 
             with sub.receive() as msg:
                 self.assertIsNotNone(msg)
@@ -111,13 +112,13 @@ class TestSubscriber(unittest.TestCase):
                 json.dump(config, file_object)
 
             persipubsub.control.initialize_all_dbs(config_pth=file)
-            queue = persipubsub.queue.Queue()
+            queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
             sub = persipubsub.subscriber.Sub()
             sub.init(sub_id='sub', config_pth=file)
 
-            self.assertRaises(RuntimeError, sub.pop)
+            self.assertRaises(RuntimeError, sub._pop)
 
 
 if __name__ == '__main__':
