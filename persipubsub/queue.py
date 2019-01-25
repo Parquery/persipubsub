@@ -16,27 +16,27 @@ MAX_MSGS_NUM = 1024 * 64
 HWM_LMDB_SIZE_BYTES = 30 * 1024**3  # type: int
 
 
-class Strategy(enum.Enum):
+class _Strategy(enum.Enum):
     """Store possible strategies."""
 
     prune_first = 0
     prune_last = 1
 
 
-def _parse_strategy(strategy: str) -> Strategy:
+def _parse_strategy(strategy: str) -> _Strategy:
     """
     Parse overflow strategy.
 
     :param strategy: Strategy stored in config
     :return: set overflow strategy
     """
-    if Strategy.prune_first.name == strategy:
-        return Strategy.prune_first
+    if _Strategy.prune_first.name == strategy:
+        return _Strategy.prune_first
 
-    return Strategy.prune_last
+    return _Strategy.prune_last
 
 
-class HighWaterMark:
+class _HighWaterMark:
     """Store high water mark limits."""
 
     def __init__(self,
@@ -161,8 +161,8 @@ class _Queue:
 
     config_pth = None  # type: pathlib.Path
     env = None  # type: lmdb.Environment
-    hwm = None  # type: HighWaterMark
-    strategy = None  # type: Strategy
+    hwm = None  # type: _HighWaterMark
+    strategy = None  # type: _Strategy
     sub_list = None  # type: List[str]
 
     def __init__(self) -> None:
@@ -215,7 +215,7 @@ class _Queue:
         assert isinstance(hwm['MSG_TIMEOUT_SECS'], int)
         assert isinstance(hwm['MAX_MSGS_NUM'], int)
         assert isinstance(hwm['HWM_LMDB_SIZE_BYTES'], int)
-        self.hwm = HighWaterMark(
+        self.hwm = _HighWaterMark(
             msg_timeout_secs=hwm['MSG_TIMEOUT_SECS'],
             max_msgs_num=hwm['MAX_MSGS_NUM'],
             hwm_lmdb_size_bytes=hwm['HWM_LMDB_SIZE_BYTES'])
@@ -444,7 +444,7 @@ class _Queue:
             entries = meta_stat['entries']
 
             cursor = txn.cursor(db=meta_db)
-            if self.strategy == Strategy.prune_first:
+            if self.strategy == _Strategy.prune_first:
 
                 cursor.first()
                 for index, key in enumerate(
@@ -453,7 +453,7 @@ class _Queue:
                     if index >= int(entries / 2):
                         break
 
-            elif self.strategy == Strategy.prune_last:
+            elif self.strategy == _Strategy.prune_last:
                 cursor.last()
                 for index, key in enumerate(
                         cursor.iterprev(keys=True, values=False)):

@@ -391,7 +391,7 @@ class TestQueue(unittest.TestCase):
             queue = persipubsub.queue._Queue()
 
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-            queue.strategy = persipubsub.queue.Strategy.prune_first
+            queue.strategy = persipubsub.queue._Strategy.prune_first
 
             queue.hwm.max_msgs_num = tests.TEST_HWM_MSG_NUM
 
@@ -425,7 +425,7 @@ class TestQueue(unittest.TestCase):
             queue = persipubsub.queue._Queue()
 
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-            queue.strategy = persipubsub.queue.Strategy.prune_last
+            queue.strategy = persipubsub.queue._Strategy.prune_last
 
             queue.hwm.max_msgs_num = tests.TEST_HWM_MSG_NUM
 
