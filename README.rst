@@ -173,10 +173,22 @@ Send a message
 
 .. code-block:: python
 
-    msg = "Hello there!".encode('utf-8)
+    msg = "Hello there!".encode('utf-8')
     pub.send(msg=msg)
 
-    # subscribers have now a message in the queue
+    # subscribers have now a message in the queue.
+
+Send many messages at once
+""""""""""""""""""""""""""
+
+.. code-block:: python
+
+    msgs = ["What's up?".encode('utf-8'),
+            "Do you like the README?".encode('utf-8')]
+    pub.send_many(msgs=msgs)
+
+    # Subscribers have now both messages in the queue not necessary in the list
+    # order.
 
 Subscriber
 ^^^^^^^^^^
@@ -203,6 +215,22 @@ Receive a message
     with sub.receive() as msg:
         # do something with the message
         print(msg)  # b'Hello there!'
+
+    # sub queue is now empty
+
+Catch up with latest message
+""""""""""""""""""""""""""""
+
+In case your subscriber is slow, the queue is growing and you want to want to
+receive the latest messages.
+
+.. code-block:: python
+
+    # many outdated messages in queue
+    sub.pop_to_top()
+    # most recent message left in queue
+    with sub.receive() as msg:
+        # do something with the message
 
     # sub queue is now empty
 
