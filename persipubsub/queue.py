@@ -4,8 +4,7 @@ import datetime
 import enum
 import pathlib
 import uuid
-from typing import (  # pylint: disable=unused-import
-    Any, Dict, List, Optional, Union)
+from typing import Any, Dict, List, Optional, Union
 
 import icontract
 import lmdb
