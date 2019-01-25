@@ -17,23 +17,36 @@ persipubsub
     :alt: Documentation Status
 
 
-*catch phrase in work*
+``persipubsub`` implements a persistent, thread-safe and process-safe `lmdb
+<http://www.lmdb.tech/doc/>`_-queue for inter-process communication.
 
-What we wanted.
-Motivation
-Strengths
+Primarily, we used `zeromq <http://zeromq.org//>`_ for inter-process
+communication with a slight improvement through `persizmq
+<https://github.com/Parquery/persizmq>`_. This still didn't fulfill the level
+of persistence we wanted.
+
+Our motivation was to replace our previous library with a one which is
+similarly easy to setup and to use. Additionally, it should make it possible to
+send `protobuf <https://developers.google.com/protocol-buffers/>`_ messages
+more precisely bytes persistently, thread-safely and process-safely from
+many publishers to many subscribers.
+
+Besides basic publisher and subscriber classes the library offers control
+methods for easy deployment from a config JSON file and maintenance in case
+needed.
 
 Related projects
 ================
 
 persist-queue
 -------------
-* `protobuf <https://developers.google.com/protocol-buffers/>`_ messages can't
-  be send with `persist-queue <https://github.com/peter-wangxu/persist-queue/>`_ except if you deserialize it and serialize it with pickle.
+
 * Offers not all functionality expected from a queue. Has put and get function
-  which are basically only push and pop. So front/peak functionality is missing.
+  which are basically only push and pop. So ``front`` functionality is missing.
   So neither can multiple subscriber be implemented nor can't be guaranteed that
   no data is lost when a thread fails.
+* All messages in queues are serialized by ``pickle`` which was for us a reason
+  against using this library.
 
 Kafka
 -----
@@ -60,28 +73,138 @@ zeromq persistence pattern
 Usage
 =====
 
-*Intro text*
+The usage of the library can be differentiated into deployment and actual
+runtime of your processes.
 
 Deployment
 ----------
 
+For deployment only a proper config JSON file is needed to setup the whole
+queue structure.
+
 config.json
 ^^^^^^^^^^^
+Publishers, subscribers and queues need to be defined before runtime in the
+config JSON file.
+
+.. code-block:: json
+
+    {
+        "pub": {
+            "out_queue": "/home/user/queues/queue",
+            "subscribers": ["sub"]
+        },
+        "sub": {
+            "in_queue": "/home/user/queues/queue"
+        },
+        "queues": {
+            "/home/user/queues/queue": {
+                "path": "/home/user/queues/queue",
+                "max_reader_num": 1024,
+                "max_db_num": 1024,
+                "max_db_size_bytes": 34359738368,
+                "subscribers": ["sub"],
+                "high-water-mark": {
+                    "MSG_TIMEOUT_SECS": 600,
+                    "MAX_MSGS_NUM": 10000,
+                    "HWM_LMDB_SIZE_BYTES": 1000000,
+                    "strategy": "prune_first"
+                }
+            }
+        }
+    }
 
 Control
 ^^^^^^^
 
+Initialize all queues
+"""""""""""""""""""""
+
+.. code-block:: python
+
+    import persipubsub.control
+
+    persipubsub.control.initialize_all_dbs(config_pth="/home/user/config.json")
+
+Prune all dangling messages
+"""""""""""""""""""""""""""
+
+.. code-block:: python
+
+    import persipubsub.control
+
+    persipubsub.control.prune_dangling_messages(
+        config_pth="/home/user/config.json")
+
+Clear all messages
+""""""""""""""""""
+
+.. code-block:: python
+
+    import persipubsub.control
+
+    persipubsub.control.clear_all_subs(config_pth="/home/user/config.json")
+
+
 Runtime
 -------
-
-Queue
-^^^^^
+During runtime only publisher and subscriber are needed. Control can be
+optionally be used for pruning although the queues prune itself on a regular
+basis.
 
 Publisher
 ^^^^^^^^^
 
+Initialization
+""""""""""""""
+
+Assuming that all queues were initialized during deployment the publisher can
+be initialized as following.
+
+.. code-block:: python
+
+    import persipubsub.publisher
+
+    pub = persipubsub.publisher.Pub()
+    pub.init(pub_id="pub", config_pth="/home/user/config.json")
+
+Send a message
+""""""""""""""
+
+.. code-block:: python
+
+    msg = "Hello there!".encode('utf-8)
+    pub.send(msg=msg)
+
+    # subscribers have now a message in the queue
+
 Subscriber
 ^^^^^^^^^^
+
+Initialization
+""""""""""""""
+
+Assuming that all queues were initialized during deployment the publisher can
+be initialized as following.
+
+.. code-block:: python
+
+    import persipubsub.subscriber
+
+    sub = persipubsub.subscriber.Sub()
+    sub.init(sub_id="sub", config_pth="/home/user/config.json")
+
+Receive a message
+"""""""""""""""""
+
+.. code-block:: python
+
+    # one message in queue
+    with sub.receive() as msg:
+        # do something with the message
+        print(msg)  # b'Hello there!'
+
+    # sub queue is now empty
 
 Documentation
 =============
