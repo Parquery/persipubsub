@@ -44,16 +44,16 @@ setup(
     extras_require={
         'dev': [
             # yapf: disable
-            'mypy==0.641',
+            'mypy==0.660',
             'pylint==2.2.2',
             'yapf==0.25.0',
-            'tox>=3.5.3',
+            'tox>=3.7.0',
             'coverage>=4.5.2,<5',
             'pydocstyle>=3.0.0,<4',
             'pyicontract-lint>=2.0.0,<3',
             'docutils>=0.14,<1',
             'isort>=4.3.4,<5',
-            'pygments>=2.3.0,<3',
+            'pygments>=2.3.1,<3',
             'twine>=1.12.1,<2',
             'setuptools>=40.6.3,<41',
             'wheel>=0.32.3,<1',
