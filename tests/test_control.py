@@ -123,7 +123,6 @@ class TestControl(unittest.TestCase):
             self.assertListEqual(sorted(expected_db_keys), sorted(db_keys))
 
     def test_prune_dangling_messages(self):
-        # TODO(snaji): check
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
             config = tests.generate_test_config(path=tmp_dir.path)
@@ -222,7 +221,6 @@ class TestControl(unittest.TestCase):
             self.assertEqual(expected_remaining_entries, remaining_entries)
 
     def test_prune_all_messages_for_subscriber(self):
-        # TODO(snaji): discuss with Adam and Marko
         with temppathlib.TemporaryDirectory() as tmp_dir:
             config = tests.generate_test_config(path=tmp_dir.path)
 

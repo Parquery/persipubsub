@@ -15,7 +15,6 @@ import tests
 
 
 class TestSubscriber(unittest.TestCase):
-    # TODO(snaji): receive from cache or fetch from lmdb
     def test_receive_message(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
             config = tests.generate_test_config(path=tmp_dir.path)
@@ -90,7 +89,6 @@ class TestSubscriber(unittest.TestCase):
             sub = persipubsub.subscriber.Sub()
             sub.init(sub_id='sub', config_pth=file)
 
-            # TODO(snaji): protobuf or str example
             msg1 = "I'm a message".encode(tests.ENCODING)
             queue.put(msg=msg1, sub_list=queue.sub_list)
 

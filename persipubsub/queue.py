@@ -122,7 +122,6 @@ def prune_dangling_messages_for(queue: 'Queue', sub_list: List[str]) -> None:
 
         timestamp_now = datetime.datetime.utcnow().timestamp()
         for key, timestamp in cursor:
-            # TODO(snaji): check type of metadata
             if int(timestamp_now) - persipubsub.bytes_to_int(timestamp) \
                     > queue.hwm.msg_timeout_secs:
                 msgs_to_delete_timeout.add(key)
@@ -228,7 +227,6 @@ class Queue:
 
     def __enter__(self) -> 'Queue':
         """Enter the context and give the queue prepared in the constructor."""
-        # TODO(snaji): queue.init(...)?
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -265,8 +263,6 @@ class Queue:
                 key=persipubsub.DATA_DB, txn=txn, create=False)
             txn.put(key=persipubsub.encoding(msg_id), value=msg, db=data_db)
 
-            # TODO(snaji): can subscriber send messages to subset of queue
-            #  sub_list?
             for sub in sub_list:
                 sub_db = self.env.open_db(
                     key=persipubsub.encoding(sub), txn=txn, create=False)
@@ -383,7 +379,6 @@ class Queue:
         """
         prune_dangling_messages_for(queue=self, sub_list=self.sub_list)
 
-    # TODO(snaji): side todo add precise check size
     def check_current_lmdb_size(self) -> int:
         """
         Check current lmdb size in bytes.

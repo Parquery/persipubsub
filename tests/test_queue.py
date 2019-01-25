@@ -39,7 +39,7 @@ class TestQueue(unittest.TestCase):
 
     def test_put_to_single_subscriber(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            msg = "I'm a protobuf message.".encode(tests.ENCODING)
+            msg = "I'm a message.".encode(tests.ENCODING)
 
             subscriber = "sub"
 
@@ -75,8 +75,58 @@ class TestQueue(unittest.TestCase):
                 self.assertEqual(msg, value)
 
     def test_put_multiple_subscriber(self):
-        # TODO(snaji):
-        pass
+        # pylint: disable=too-many-locals
+        with temppathlib.TemporaryDirectory() as tmp_dir:
+            msg = "I'm a message.".encode(tests.ENCODING)
+
+            sub_list = ["sub", "another_sub"]
+
+            config = tests.generate_test_config(path=tmp_dir.path)
+
+            file = tmp_dir.path / "config.json"
+
+            with open(file=file.as_posix(), mode='wt') as file_object:
+                json.dump(config, file_object)
+
+            persipubsub.control.initialize_all_dbs(config_pth=file)
+            queue = persipubsub.queue.Queue()
+            queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
+
+            persipubsub.control.add_sub('another_sub', queue=queue)
+
+            queue.put(msg=msg, sub_list=sub_list)
+
+            with queue.env.begin() as txn:
+                self.assertIsNotNone(
+                    txn.get(key=sub_list[0].encode(tests.ENCODING)))
+
+                sub_db_0 = queue.env.open_db(
+                    key=sub_list[0].encode(tests.ENCODING),
+                    txn=txn,
+                    create=False)
+                cursor = txn.cursor(db=sub_db_0)
+                self.assertTrue(cursor.first())
+                key_0 = cursor.key()
+
+                self.assertIsNotNone(
+                    txn.get(key=sub_list[1].encode(tests.ENCODING)))
+
+                sub_db_1 = queue.env.open_db(
+                    key=sub_list[1].encode(tests.ENCODING),
+                    txn=txn,
+                    create=False)
+                cursor = txn.cursor(db=sub_db_1)
+                self.assertTrue(cursor.first())
+                key_1 = cursor.key()
+
+                self.assertEqual(key_0, key_1)
+
+                data_db = queue.env.open_db(
+                    key=tests.DATA_DB, txn=txn, create=False)
+
+                value = txn.get(key=key_1, db=data_db)
+                self.assertIsNotNone(value)
+                self.assertEqual(msg, value)
 
     def test_put_many(self):
         # pylint: disable=too-many-locals
@@ -92,7 +142,6 @@ class TestQueue(unittest.TestCase):
             queue = persipubsub.queue.Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
-            # TODO(snaji): check everywhere encoding
             msg = "I'm a message".encode(tests.ENCODING)
             msgs = []
             msg_num = 10
@@ -123,7 +172,7 @@ class TestQueue(unittest.TestCase):
 
     def test_front(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            msg = "I'm a protobuf message.".encode(tests.ENCODING)
+            msg = "I'm a message.".encode(tests.ENCODING)
 
             subscriber = "sub"
 
@@ -138,7 +187,6 @@ class TestQueue(unittest.TestCase):
 
             queue = persipubsub.queue.Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-            # TODO(snaji): replace with lmdb.env statements?
             queue.put(msg=msg, sub_list=[subscriber])
 
             # pylint: disable=assignment-from-none
@@ -149,7 +197,7 @@ class TestQueue(unittest.TestCase):
 
     def test_pop(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            msg = "I'm a protobuf message.".encode(tests.ENCODING)
+            msg = "I'm a message.".encode(tests.ENCODING)
 
             subscriber = "sub"
 
@@ -164,7 +212,6 @@ class TestQueue(unittest.TestCase):
 
             queue = persipubsub.queue.Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-            # TODO(snaji): replace with lmdb.env statements?
             queue.put(msg=msg, sub_list=[subscriber])
 
             # pylint: disable=assignment-from-none

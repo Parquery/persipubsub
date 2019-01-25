@@ -88,7 +88,6 @@ class TestPublisher(unittest.TestCase):
             pub = persipubsub.publisher.Pub()
             pub.init(pub_id='pub', config_pth=file)
 
-            # TODO(snaji): check everywhere encoding
             msg = "I'm a message".encode(tests.ENCODING)
             msgs = []
             msg_num = 10

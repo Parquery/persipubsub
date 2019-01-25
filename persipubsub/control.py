@@ -15,7 +15,6 @@ def initialize_all_dbs(config_pth: Union[pathlib.Path, str]) -> None:
     """
     config = persipubsub.get_config(path=config_pth)  # type: Dict[str, Any]
     queues = config["queues"]  # type: Dict[str, Any]
-    # TODO(snaji): maybe multi-threaded especially different queues
     for values in queues.values():
         queue_dir = pathlib.Path(values["path"])
         if not queue_dir.exists():
@@ -104,7 +103,6 @@ def remove_sub(sub_id: str, queue: persipubsub.queue.Queue) -> None:
     with queue.env.begin(write=True) as txn:
         sub_db = queue.env.open_db(
             key=persipubsub.encoding(sub_id), txn=txn, create=False)
-        # TODO(snaji): messages in pending_db?
         cursor = txn.cursor(db=sub_db)
         # check if database is not empty
         if cursor.first():
@@ -157,7 +155,6 @@ def prune_all_messages_for(sub_id: str, queue: persipubsub.queue.Queue) -> None:
     :param sub_id: ID of the subscriber of which all messages should be pruned
     :param queue: of which some subscriber's messages should be pruned
     """
-    # TODO(snaji): pending_db?
     msg_of_sub = set()
     with queue.env.begin(write=True) as txn:
         sub_db = queue.env.open_db(

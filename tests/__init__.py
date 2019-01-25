@@ -12,8 +12,6 @@ import persipubsub
 
 # pylint: disable=missing-docstring
 
-# TODO(snaji): test init.py
-
 LMDB_PAGE_SIZE = 4096
 
 TEST_MSG_TIMEOUT = 1  # type: int

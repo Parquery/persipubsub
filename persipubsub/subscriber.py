@@ -50,10 +50,6 @@ class Sub:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Leave the context."""
 
-    # TODO(snaji): return type Optional[str]:?
-    # TODO(snaji): rewrite with enter and exit?
-    # TODO(snaji): receive or front?
-
     @icontract.require(lambda timeout: timeout > 0)
     @icontract.require(lambda retries: retries > 0)
     @contextlib.contextmanager
