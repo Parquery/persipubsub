@@ -83,7 +83,8 @@ def _initialize_environment(
         map_size=max_db_size_bytes,
         subdir=True,
         max_readers=max_reader_num,
-        max_dbs=max_db_num)
+        max_dbs=max_db_num,
+        max_spare_txns=0)
 
     return env
 
