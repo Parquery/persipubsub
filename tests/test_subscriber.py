@@ -9,7 +9,7 @@ import temppathlib
 import persipubsub.control
 import persipubsub.queue
 import persipubsub.subscriber
-import tests.common
+import tests
 
 # pylint: disable=missing-docstring
 # pylint: disable=protected-access
@@ -18,7 +18,7 @@ import tests.common
 class TestSubscriber(unittest.TestCase):
     def test_receive_message(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.common.generate_test_config(path=tmp_dir.path)
+            config = tests.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -32,7 +32,7 @@ class TestSubscriber(unittest.TestCase):
             sub = persipubsub.subscriber.Sub()
             sub.init(sub_id="sub", config_pth=file)
 
-            msg = "Hello World!".encode(tests.common.ENCODING)
+            msg = "Hello World!".encode(tests.ENCODING)
             queue.put(msg=msg, sub_list=["sub"])
 
             with sub.receive(timeout=1) as received_msg:
@@ -41,7 +41,7 @@ class TestSubscriber(unittest.TestCase):
 
     def test_timeout_subscriber(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.common.generate_test_config(path=tmp_dir.path)
+            config = tests.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -58,25 +58,25 @@ class TestSubscriber(unittest.TestCase):
             with sub.receive(timeout=1) as received_msg:
                 self.assertIsNone(received_msg)
                 msg = "message send after timeout and will not be popped" \
-                      "".encode(tests.common.ENCODING)
+                      "".encode(tests.ENCODING)
                 queue.put(msg=msg, sub_list=queue.sub_list)
                 self.assertIsNone(received_msg)
 
             self.assertEqual(
                 "message send after timeout and will not be popped".encode(
-                    tests.common.ENCODING), queue.front(sub_id='sub'))
+                    tests.ENCODING), queue.front(sub_id='sub'))
 
             with sub.receive(timeout=1) as received_msg:
                 self.assertIsNotNone(received_msg)
                 self.assertEqual(
                     "message send after timeout and will not be popped".encode(
-                        tests.common.ENCODING), received_msg)
+                        tests.ENCODING), received_msg)
 
             self.assertIsNone(queue.front(sub_id='sub'))
 
     def test_pop(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.common.generate_test_config(path=tmp_dir.path)
+            config = tests.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -90,10 +90,10 @@ class TestSubscriber(unittest.TestCase):
             sub = persipubsub.subscriber.Sub()
             sub.init(sub_id='sub', config_pth=file)
 
-            msg1 = "I'm a message".encode(tests.common.ENCODING)
+            msg1 = "I'm a message".encode(tests.ENCODING)
             queue.put(msg=msg1, sub_list=queue.sub_list)
 
-            msg2 = "I'm a message too".encode(tests.common.ENCODING)
+            msg2 = "I'm a message too".encode(tests.ENCODING)
             queue.put(msg=msg2, sub_list=queue.sub_list)
 
             sub._pop()
@@ -104,7 +104,7 @@ class TestSubscriber(unittest.TestCase):
 
     def test_pop_when_empty(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.common.generate_test_config(path=tmp_dir.path)
+            config = tests.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
