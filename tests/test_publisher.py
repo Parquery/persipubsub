@@ -10,7 +10,7 @@ import temppathlib
 import persipubsub.control
 import persipubsub.publisher
 import persipubsub.queue
-import tests
+import tests.common
 
 # pylint: disable=missing-docstring
 # pylint: disable=protected-access
@@ -20,7 +20,7 @@ class TestPublisher(unittest.TestCase):
     def test_send(self):
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -34,10 +34,10 @@ class TestPublisher(unittest.TestCase):
             pub = persipubsub.publisher.Pub()
             pub.init(pub_id="pub", config_pth=file)
 
-            msg = "Hello world!".encode(tests.ENCODING)
+            msg = "Hello world!".encode(tests.common.ENCODING)
             pub.send(msg=msg)
 
-            subscriber = "sub".encode(tests.ENCODING)
+            subscriber = "sub".encode(tests.common.ENCODING)
             with queue.env.begin(write=False) as txn:
                 self.assertIsNotNone(txn.get(key=subscriber))
                 sub_db = queue.env.open_db(
@@ -48,14 +48,14 @@ class TestPublisher(unittest.TestCase):
                 key = cursor.key()
 
                 data_db = queue.env.open_db(
-                    key=tests.DATA_DB, txn=txn, create=False)
+                    key=tests.common.DATA_DB, txn=txn, create=False)
                 item = txn.get(key=key, db=data_db)
                 self.assertIsNotNone(item)
                 self.assertEqual(msg, item)
 
     def test_send_to_nonexisting_db(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -71,13 +71,13 @@ class TestPublisher(unittest.TestCase):
 
             pub.sub_list.append('non-existent sub')
 
-            msg = "message for every subscriber".encode(tests.ENCODING)
+            msg = "message for every subscriber".encode(tests.common.ENCODING)
             self.assertRaises(lmdb.NotFoundError, pub.send, msg=msg)
 
     def test_send_many(self):
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -89,7 +89,7 @@ class TestPublisher(unittest.TestCase):
             pub = persipubsub.publisher.Pub()
             pub.init(pub_id='pub', config_pth=file)
 
-            msg = "I'm a message".encode(tests.ENCODING)
+            msg = "I'm a message".encode(tests.common.ENCODING)
             msgs = []
             msg_num = 10
             for _ in range(msg_num):
@@ -101,10 +101,10 @@ class TestPublisher(unittest.TestCase):
 
             with pub.queue.env.begin(write=False) as txn:
                 self.assertIsNotNone(
-                    txn.get(key=subscriber.encode(tests.ENCODING)))
+                    txn.get(key=subscriber.encode(tests.common.ENCODING)))
 
                 sub_db = pub.queue.env.open_db(
-                    key=subscriber.encode(tests.ENCODING),
+                    key=subscriber.encode(tests.common.ENCODING),
                     txn=txn,
                     create=False)
 
@@ -112,7 +112,7 @@ class TestPublisher(unittest.TestCase):
                 self.assertEqual(msg_num, sub_stat['entries'])
 
                 data_db = pub.queue.env.open_db(
-                    key=tests.DATA_DB, txn=txn, create=False)
+                    key=tests.common.DATA_DB, txn=txn, create=False)
 
                 data_stat = txn.stat(db=data_db)
                 self.assertEqual(msg_num, data_stat['entries'])

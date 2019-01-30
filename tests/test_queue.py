@@ -9,7 +9,7 @@ import temppathlib
 
 import persipubsub.control
 import persipubsub.queue
-import tests
+import tests.common
 
 # pylint: disable=missing-docstring
 # pylint: disable=protected-access
@@ -40,11 +40,11 @@ class TestQueue(unittest.TestCase):
 
     def test_put_to_single_subscriber(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            msg = "I'm a message.".encode(tests.ENCODING)
+            msg = "I'm a message.".encode(tests.common.ENCODING)
 
             subscriber = "sub"
 
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -58,10 +58,10 @@ class TestQueue(unittest.TestCase):
 
             with queue.env.begin() as txn:
                 self.assertIsNotNone(
-                    txn.get(key=subscriber.encode(tests.ENCODING)))
+                    txn.get(key=subscriber.encode(tests.common.ENCODING)))
 
                 sub_db = queue.env.open_db(
-                    key=subscriber.encode(tests.ENCODING),
+                    key=subscriber.encode(tests.common.ENCODING),
                     txn=txn,
                     create=False)
                 cursor = txn.cursor(db=sub_db)
@@ -69,7 +69,7 @@ class TestQueue(unittest.TestCase):
                 key = cursor.key()
 
                 data_db = queue.env.open_db(
-                    key=tests.DATA_DB, txn=txn, create=False)
+                    key=tests.common.DATA_DB, txn=txn, create=False)
 
                 value = txn.get(key=key, db=data_db)
                 self.assertIsNotNone(value)
@@ -78,11 +78,11 @@ class TestQueue(unittest.TestCase):
     def test_put_multiple_subscriber(self):
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            msg = "I'm a message.".encode(tests.ENCODING)
+            msg = "I'm a message.".encode(tests.common.ENCODING)
 
             sub_list = ["sub", "another_sub"]
 
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -99,10 +99,10 @@ class TestQueue(unittest.TestCase):
 
             with queue.env.begin() as txn:
                 self.assertIsNotNone(
-                    txn.get(key=sub_list[0].encode(tests.ENCODING)))
+                    txn.get(key=sub_list[0].encode(tests.common.ENCODING)))
 
                 sub_db_0 = queue.env.open_db(
-                    key=sub_list[0].encode(tests.ENCODING),
+                    key=sub_list[0].encode(tests.common.ENCODING),
                     txn=txn,
                     create=False)
                 cursor = txn.cursor(db=sub_db_0)
@@ -110,10 +110,10 @@ class TestQueue(unittest.TestCase):
                 key_0 = cursor.key()
 
                 self.assertIsNotNone(
-                    txn.get(key=sub_list[1].encode(tests.ENCODING)))
+                    txn.get(key=sub_list[1].encode(tests.common.ENCODING)))
 
                 sub_db_1 = queue.env.open_db(
-                    key=sub_list[1].encode(tests.ENCODING),
+                    key=sub_list[1].encode(tests.common.ENCODING),
                     txn=txn,
                     create=False)
                 cursor = txn.cursor(db=sub_db_1)
@@ -123,7 +123,7 @@ class TestQueue(unittest.TestCase):
                 self.assertEqual(key_0, key_1)
 
                 data_db = queue.env.open_db(
-                    key=tests.DATA_DB, txn=txn, create=False)
+                    key=tests.common.DATA_DB, txn=txn, create=False)
 
                 value = txn.get(key=key_1, db=data_db)
                 self.assertIsNotNone(value)
@@ -132,7 +132,7 @@ class TestQueue(unittest.TestCase):
     def test_put_many(self):
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -143,7 +143,7 @@ class TestQueue(unittest.TestCase):
             queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
-            msg = "I'm a message".encode(tests.ENCODING)
+            msg = "I'm a message".encode(tests.common.ENCODING)
             msgs = []
             msg_num = 10
             for _ in range(msg_num):
@@ -155,10 +155,10 @@ class TestQueue(unittest.TestCase):
 
             with queue.env.begin(write=False) as txn:
                 self.assertIsNotNone(
-                    txn.get(key=subscriber.encode(tests.ENCODING)))
+                    txn.get(key=subscriber.encode(tests.common.ENCODING)))
 
                 sub_db = queue.env.open_db(
-                    key=subscriber.encode(tests.ENCODING),
+                    key=subscriber.encode(tests.common.ENCODING),
                     txn=txn,
                     create=False)
 
@@ -166,18 +166,18 @@ class TestQueue(unittest.TestCase):
                 self.assertEqual(msg_num, sub_stat['entries'])
 
                 data_db = queue.env.open_db(
-                    key=tests.DATA_DB, txn=txn, create=False)
+                    key=tests.common.DATA_DB, txn=txn, create=False)
 
                 data_stat = txn.stat(db=data_db)
                 self.assertEqual(msg_num, data_stat['entries'])
 
     def test_front(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            msg = "I'm a message.".encode(tests.ENCODING)
+            msg = "I'm a message.".encode(tests.common.ENCODING)
 
             subscriber = "sub"
 
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -198,11 +198,11 @@ class TestQueue(unittest.TestCase):
 
     def test_pop(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            msg = "I'm a message.".encode(tests.ENCODING)
+            msg = "I'm a message.".encode(tests.common.ENCODING)
 
             subscriber = "sub"
 
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -222,7 +222,7 @@ class TestQueue(unittest.TestCase):
 
             with queue.env.begin() as txn:
                 pending_db = queue.env.open_db(
-                    key=tests.PENDING_DB, txn=txn, create=False)
+                    key=tests.common.PENDING_DB, txn=txn, create=False)
 
                 cursor = txn.cursor(db=pending_db)
                 self.assertTrue(cursor.first())
@@ -235,21 +235,21 @@ class TestQueue(unittest.TestCase):
 
             with queue.env.begin() as txn:
                 pending_db = queue.env.open_db(
-                    key=tests.PENDING_DB, txn=txn, create=False)
+                    key=tests.common.PENDING_DB, txn=txn, create=False)
                 cursor = txn.cursor(db=pending_db)
                 self.assertTrue(cursor.first())
                 pending_after_pop = cursor.value()
 
             self.assertEqual(
-                int.from_bytes(pending_before_pop, tests.BYTES_ORDER) - 1,
-                int.from_bytes(pending_after_pop, tests.BYTES_ORDER))
+                int.from_bytes(pending_before_pop, tests.common.BYTES_ORDER) -
+                1, int.from_bytes(pending_after_pop, tests.common.BYTES_ORDER))
 
     def test_pop_queue_empty(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
 
             subscriber = "sub"
 
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -265,7 +265,7 @@ class TestQueue(unittest.TestCase):
 
     def test_queue_initialisation(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -292,7 +292,7 @@ class TestQueue(unittest.TestCase):
 
     def test_overflow_msgs_limit(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -305,25 +305,25 @@ class TestQueue(unittest.TestCase):
 
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
-            queue.hwm.max_msgs_num = tests.TEST_HWM_MSG_NUM
+            queue.hwm.max_msgs_num = tests.common.TEST_HWM_MSG_NUM
 
-            msg = "hello world".encode(tests.ENCODING)
+            msg = "hello world".encode(tests.common.ENCODING)
 
             self.assertEqual(0, queue.count_msgs())
-            for _ in range(tests.TEST_HWM_MSG_NUM):
+            for _ in range(tests.common.TEST_HWM_MSG_NUM):
                 queue.put(msg=msg, sub_list=queue.sub_list)
 
-            self.assertEqual(tests.TEST_HWM_MSG_NUM, queue.count_msgs())
+            self.assertEqual(tests.common.TEST_HWM_MSG_NUM, queue.count_msgs())
 
             queue.put(msg=msg, sub_list=queue.sub_list)
 
             self.assertEqual(
-                int(tests.TEST_HWM_MSG_NUM - int(tests.TEST_HWM_MSG_NUM / 2)),
-                queue.count_msgs())
+                int(tests.common.TEST_HWM_MSG_NUM -
+                    int(tests.common.TEST_HWM_MSG_NUM / 2)), queue.count_msgs())
 
     def test_overflow_limit_size(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -336,24 +336,26 @@ class TestQueue(unittest.TestCase):
 
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
 
-            queue.hwm.hwm_lmdb_size_bytes = tests.TEST_HWM_LMDB_SIZE
+            queue.hwm.hwm_lmdb_size_bytes = tests.common.TEST_HWM_LMDB_SIZE
 
-            msg = ("a" * (int(tests.LMDB_PAGE_SIZE / 4))).encode(tests.ENCODING)
+            msg = ("a" * (int(tests.common.LMDB_PAGE_SIZE / 4))).encode(
+                tests.common.ENCODING)
 
-            while queue.check_current_lmdb_size() <= tests.TEST_HWM_LMDB_SIZE:
+            while queue.check_current_lmdb_size(
+            ) <= tests.common.TEST_HWM_LMDB_SIZE:
                 queue.put(msg=msg, sub_list=queue.sub_list)
 
-            self.assertTrue(
-                queue.check_current_lmdb_size() > tests.TEST_HWM_LMDB_SIZE)
+            self.assertTrue(queue.check_current_lmdb_size() > tests.common.
+                            TEST_HWM_LMDB_SIZE)
 
             queue.put(msg=msg, sub_list=queue.sub_list)
 
-            self.assertTrue(
-                queue.check_current_lmdb_size() <= tests.TEST_HWM_LMDB_SIZE)
+            self.assertTrue(queue.check_current_lmdb_size() <= tests.common.
+                            TEST_HWM_LMDB_SIZE)
 
     def test_timeout(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -365,21 +367,21 @@ class TestQueue(unittest.TestCase):
             queue = persipubsub.queue._Queue()
 
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-            queue.hwm.msg_timeout_secs = tests.TEST_MSG_TIMEOUT
+            queue.hwm.msg_timeout_secs = tests.common.TEST_MSG_TIMEOUT
 
-            msg = "hello world".encode(tests.ENCODING)
+            msg = "hello world".encode(tests.common.ENCODING)
 
             queue.put(msg=msg, sub_list=queue.sub_list)
             self.assertEqual(1, queue.count_msgs())
             queue.put(msg=msg, sub_list=queue.sub_list)
             self.assertEqual(2, queue.count_msgs())
-            time.sleep(tests.TEST_MSG_TIMEOUT + 1)
+            time.sleep(tests.common.TEST_MSG_TIMEOUT + 1)
             queue.put(msg=msg, sub_list=queue.sub_list)
             self.assertEqual(1, queue.count_msgs())
 
     def test_strategy_prune_first(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -393,27 +395,28 @@ class TestQueue(unittest.TestCase):
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
             queue.strategy = persipubsub.queue._Strategy.prune_first
 
-            queue.hwm.max_msgs_num = tests.TEST_HWM_MSG_NUM
+            queue.hwm.max_msgs_num = tests.common.TEST_HWM_MSG_NUM
 
-            for index in range(tests.TEST_HWM_MSG_NUM):
-                msg = "secret message {}".format(index).encode(tests.ENCODING)
+            for index in range(tests.common.TEST_HWM_MSG_NUM):
+                msg = "secret message {}".format(index).encode(
+                    tests.common.ENCODING)
                 queue.put(msg=msg, sub_list=queue.sub_list)
 
-            self.assertEqual("secret message 0".encode(tests.ENCODING),
+            self.assertEqual("secret message 0".encode(tests.common.ENCODING),
                              queue.front(sub_id='sub'))
 
-            msg = "secret message {}".format(tests.TEST_HWM_MSG_NUM).encode(
-                tests.ENCODING)
+            msg = "secret message {}".format(
+                tests.common.TEST_HWM_MSG_NUM).encode(tests.common.ENCODING)
             queue.put(msg=msg, sub_list=queue.sub_list)
 
             self.assertEqual(
                 "secret message {}".format(
-                    int((tests.TEST_HWM_MSG_NUM / 2) + 1)).encode(
-                        tests.ENCODING), queue.front(sub_id='sub'))
+                    int((tests.common.TEST_HWM_MSG_NUM / 2) + 1)).encode(
+                        tests.common.ENCODING), queue.front(sub_id='sub'))
 
     def test_strategy_prune_last(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -427,20 +430,21 @@ class TestQueue(unittest.TestCase):
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
             queue.strategy = persipubsub.queue._Strategy.prune_last
 
-            queue.hwm.max_msgs_num = tests.TEST_HWM_MSG_NUM
+            queue.hwm.max_msgs_num = tests.common.TEST_HWM_MSG_NUM
 
-            for index in range(tests.TEST_HWM_MSG_NUM):
-                msg = "secret message {}".format(index).encode(tests.ENCODING)
+            for index in range(tests.common.TEST_HWM_MSG_NUM):
+                msg = "secret message {}".format(index).encode(
+                    tests.common.ENCODING)
                 queue.put(msg=msg, sub_list=queue.sub_list)
 
-            self.assertEqual("secret message 0".encode(tests.ENCODING),
+            self.assertEqual("secret message 0".encode(tests.common.ENCODING),
                              queue.front(sub_id='sub'))
 
-            msg = "secret message {}".format(tests.TEST_HWM_MSG_NUM).encode(
-                tests.ENCODING)
+            msg = "secret message {}".format(
+                tests.common.TEST_HWM_MSG_NUM).encode(tests.common.ENCODING)
             queue.put(msg=msg, sub_list=queue.sub_list)
 
-            self.assertEqual("secret message 0".encode(tests.ENCODING),
+            self.assertEqual("secret message 0".encode(tests.common.ENCODING),
                              queue.front(sub_id='sub'))
 
 

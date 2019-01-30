@@ -10,7 +10,7 @@ import temppathlib
 
 import persipubsub.control
 import persipubsub.queue
-import tests
+import tests.common
 
 # pylint: disable=missing-docstring
 # pylint: disable=protected-access
@@ -19,7 +19,7 @@ import tests
 class TestControl(unittest.TestCase):
     def test_initialize_all(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -44,7 +44,7 @@ class TestControl(unittest.TestCase):
 
     def test_add_sub(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -72,7 +72,7 @@ class TestControl(unittest.TestCase):
 
     def test_del_sub(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -99,7 +99,7 @@ class TestControl(unittest.TestCase):
 
     def test_clear_all_subs(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -126,7 +126,7 @@ class TestControl(unittest.TestCase):
     def test_prune_dangling_messages(self):
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
@@ -137,70 +137,79 @@ class TestControl(unittest.TestCase):
 
             queue = persipubsub.queue._Queue()
             queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-            queue.hwm.msg_timeout_secs = tests.TEST_MSG_TIMEOUT
+            queue.hwm.msg_timeout_secs = tests.common.TEST_MSG_TIMEOUT
 
             with queue.env.begin(write=True) as txn:
                 sub_db = queue.env.open_db(
-                    key='sub'.encode(tests.ENCODING), txn=txn, create=False)
+                    key='sub'.encode(tests.common.ENCODING),
+                    txn=txn,
+                    create=False)
 
-                txn.put(key="timeout_msg".encode(tests.ENCODING), db=sub_db)
-                txn.put(key="valid_msg".encode(tests.ENCODING), db=sub_db)
+                txn.put(
+                    key="timeout_msg".encode(tests.common.ENCODING), db=sub_db)
+                txn.put(
+                    key="valid_msg".encode(tests.common.ENCODING), db=sub_db)
             with queue.env.begin(write=True) as txn:
                 data_db = queue.env.open_db(
-                    key=tests.DATA_DB, txn=txn, create=False)
+                    key=tests.common.DATA_DB, txn=txn, create=False)
 
                 txn.put(
-                    key="popped_msg".encode(tests.ENCODING),
-                    value="I'm data".encode(tests.ENCODING),
+                    key="popped_msg".encode(tests.common.ENCODING),
+                    value="I'm data".encode(tests.common.ENCODING),
                     db=data_db)
                 txn.put(
-                    key="timeout_msg".encode(tests.ENCODING),
-                    value="I'm data too".encode(tests.ENCODING),
+                    key="timeout_msg".encode(tests.common.ENCODING),
+                    value="I'm data too".encode(tests.common.ENCODING),
                     db=data_db)
                 txn.put(
-                    key="valid_msg".encode(tests.ENCODING),
-                    value="Free me!".encode(tests.ENCODING),
+                    key="valid_msg".encode(tests.common.ENCODING),
+                    value="Free me!".encode(tests.common.ENCODING),
                     db=data_db)
             with queue.env.begin(write=True) as txn:
                 pending_db = queue.env.open_db(
-                    key=tests.PENDING_DB, txn=txn, create=False)
+                    key=tests.common.PENDING_DB, txn=txn, create=False)
 
                 txn.put(
-                    key="popped_msg".encode(tests.ENCODING),
+                    key="popped_msg".encode(tests.common.ENCODING),
                     value=int(0).to_bytes(
-                        length=tests.BYTES_LENGTH, byteorder=tests.BYTES_ORDER),
+                        length=tests.common.BYTES_LENGTH,
+                        byteorder=tests.common.BYTES_ORDER),
                     db=pending_db)
                 txn.put(
-                    key="timeout_msg".encode(tests.ENCODING),
+                    key="timeout_msg".encode(tests.common.ENCODING),
                     value=int(1).to_bytes(
-                        length=tests.BYTES_LENGTH, byteorder=tests.BYTES_ORDER),
+                        length=tests.common.BYTES_LENGTH,
+                        byteorder=tests.common.BYTES_ORDER),
                     db=pending_db)
                 txn.put(
-                    key="valid_msg".encode(tests.ENCODING),
+                    key="valid_msg".encode(tests.common.ENCODING),
                     value=int(1).to_bytes(
-                        length=tests.BYTES_LENGTH, byteorder=tests.BYTES_ORDER),
+                        length=tests.common.BYTES_LENGTH,
+                        byteorder=tests.common.BYTES_ORDER),
                     db=pending_db)
 
             with queue.env.begin(write=True) as txn:
                 meta_db = queue.env.open_db(
-                    key=tests.META_DB, txn=txn, create=False)
+                    key=tests.common.META_DB, txn=txn, create=False)
 
                 txn.put(
-                    key="popped_msg".encode(tests.ENCODING),
+                    key="popped_msg".encode(tests.common.ENCODING),
                     value=int(datetime.datetime.utcnow().timestamp()).to_bytes(
-                        length=tests.BYTES_LENGTH, byteorder=tests.BYTES_ORDER),
+                        length=tests.common.BYTES_LENGTH,
+                        byteorder=tests.common.BYTES_ORDER),
                     db=meta_db)
                 txn.put(
-                    key="timeout_msg".encode(tests.ENCODING),
+                    key="timeout_msg".encode(tests.common.ENCODING),
                     value=int(datetime.datetime.utcnow().timestamp() -
-                              tests.TEST_MSG_TIMEOUT - 5).to_bytes(
-                                  length=tests.BYTES_LENGTH,
-                                  byteorder=tests.BYTES_ORDER),
+                              tests.common.TEST_MSG_TIMEOUT - 5).to_bytes(
+                                  length=tests.common.BYTES_LENGTH,
+                                  byteorder=tests.common.BYTES_ORDER),
                     db=meta_db)
                 txn.put(
-                    key="valid_msg".encode(tests.ENCODING),
+                    key="valid_msg".encode(tests.common.ENCODING),
                     value=int(datetime.datetime.utcnow().timestamp()).to_bytes(
-                        length=tests.BYTES_LENGTH, byteorder=tests.BYTES_ORDER),
+                        length=tests.common.BYTES_LENGTH,
+                        byteorder=tests.common.BYTES_ORDER),
                     db=meta_db)
 
             persipubsub.control.prune_dangling_messages(config_pth=file)
@@ -223,7 +232,7 @@ class TestControl(unittest.TestCase):
 
     def test_prune_all_messages_for_subscriber(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            config = tests.common.generate_test_config(path=tmp_dir.path)
 
             file = tmp_dir.path / "config.json"
 
