@@ -22,14 +22,14 @@ persipubsub
 
 Primarily, we used `zeromq <http://zeromq.org//>`_ for inter-process
 communication with a slight improvement through `persizmq
-<https://github.com/Parquery/persizmq>`_. This still didn't fulfill the level
+<https://github.com/Parquery/persizmq>`_. This still did not fulfill the level
 of persistence we wanted.
 
 Our motivation was to replace our previous library with a one which is
 similarly easy to setup and to use. Additionally, it should make it possible to
 send `protobuf <https://developers.google.com/protocol-buffers/>`_ messages
-more precisely bytes persistently, thread-safely and process-safely from
-many publishers to many subscribers.
+(bytes) thread-safely and process-safely from many publishers to many
+subscribers.
 
 Besides basic publisher and subscriber classes the library offers control
 methods for easy deployment from a config JSON file and maintenance in case
@@ -41,51 +41,64 @@ Related projects
 persist-queue
 -------------
 
-* Offers not all functionality expected from a queue. Has put and get function
-  which are basically only push and pop. So ``front`` functionality is missing.
-  So neither can multiple subscriber be implemented nor can't be guaranteed that
-  no data is lost when a thread fails.
-* All messages in queues are serialized by ``pickle`` which was for us a reason
-  against using this library.
+* The library offers not all functionality expected from a queue. It has put
+  and get function which are basically only push and pop. Therefore ``front``
+  functionality is missing. In consequence neither can the queue have multiple
+  subscribers nor can be guaranteed that no data is lost when a thread fails.
+* All messages in queues are serialized by ``pickle`` which was for us the main
+  reason not to use this library.
 
 Kafka
 -----
-* For our needs as local system with IPC it's an unnecessary overhead.
-* Integration of Kafka written in Scala and Java in our C++/Python/Go codebase
-  not that simple.
-* Hard to setup and maintain `Kafka <https://kafka.apache.org/>`_.
+
+* Hence we only need Inter Process Communication, the TCP ability of `Kafka
+  <https://kafka.apache.org/>`_ is an unnecessary overhead.
+* Integration of ``Kafka`` written in Scala and Java in our C++/Python/Go
+  codebase is challenging.
+* Hard to setup and maintain ``Kafka``.
 * broker system eventually a bottleneck.
 
 RabbitMQ
 --------
-* For our needs as local system with IPC it's an unnecessary overhead.
+
+* Hence we only need Inter Process Communication, the TCP ability of `RabbitMQ
+  <https://www.rabbitmq.com//>`_ is an unnecessary overhead.
 * broker system eventually a bottleneck.
-* `RabbitMQ <https://www.rabbitmq.com//>`_ is less scalable than Kafka, but is
-  supported officially by more languages.
+* ``RabbitMQ`` is less scalable than ``Kafka``, but
+  is supported officially by more languages.
 
 zeromq persistence pattern
 --------------------------
-* Only persistence pattern of `zeromq <http://zeromq.org//>`_ is
-  `Titanic <https://rfc.zeromq.org/spec:9/TSP//>`_ which is also a broker
-  system. This takes away the purpose and advantage of zeromq to be a
+
+* `Titanic <https://rfc.zeromq.org/spec:9/TSP//>`_ is the only persistence
+  pattern of `zeromq <http://zeromq.org//>`_ which is also a broker system.
+  This takes away the purpose and advantage of ``zeromq`` to be a
   lightweight library which requires no broker.
 
 Usage
 =====
 
-The usage of the library can be differentiated into deployment and actual
-runtime of your processes.
+The usage of the library consists of two steps: deployment and runtime
 
 Deployment
 ----------
 
-For deployment only a proper config JSON file is needed to setup the whole
-queue structure.
+In the deployment stage the library sets up the queue structure which is saved
+in a JSON file.
 
 config.json
 ^^^^^^^^^^^
+
 Publishers, subscribers and queues need to be defined before runtime in the
 config JSON file.
+
+.. note::
+
+    The high water marks are limits for the queue. The message is deleted in
+    case that it reaches the timeout. In the other case of an overflow one
+    of two strategies is used to prune half of the queue. The choice is between
+    prune_first, which deletes the oldest messages, and prune_last, which
+    deletes the latest messages.
 
 .. code-block:: json
 
@@ -116,6 +129,8 @@ config JSON file.
 
 Control
 ^^^^^^^
+
+A control unit to initialize and maintain queues.
 
 Initialize all queues
 """""""""""""""""""""
@@ -148,9 +163,15 @@ Clear all messages
 
 Runtime
 -------
-During runtime only publisher and subscriber are needed. Control can be
-optionally be used for pruning although the queues prune itself on a regular
-basis.
+
+During runtime only publisher and subscriber are needed.
+
+.. note::
+
+    Control can be optionally be used for pruning although the queues prune
+    itself on a regular basis when high water mark is reached. The high water
+    mark includes a timeout, maximum number of messages and the maximum bytes
+    size of the queue.
 
 Publisher
 ^^^^^^^^^
@@ -187,8 +208,8 @@ Send many messages at once
             "Do you like the README?".encode('utf-8')]
     pub.send_many(msgs=msgs)
 
-    # Subscribers have now both messages in the queue not necessary in the list
-    # order.
+    # Both messages are now available for the subscribers. Note that the order
+    # of the messages are not necessarily kept.
 
 Subscriber
 ^^^^^^^^^^
@@ -196,7 +217,7 @@ Subscriber
 Initialization
 """"""""""""""
 
-Assuming that all queues were initialized during deployment the publisher can
+Assuming that all queues were initialized during deployment the subscriber can
 be initialized as following.
 
 .. code-block:: python
@@ -221,8 +242,8 @@ Receive a message
 Catch up with latest message
 """"""""""""""""""""""""""""
 
-In case your subscriber is slow, the queue is growing and you want to want to
-receive the latest messages.
+In case when the subscriber's loop is spinning slower then the publisher's,
+there is a possibility receive the latest message and discard the others ones.
 
 .. code-block:: python
 
@@ -236,6 +257,7 @@ receive the latest messages.
 
 Documentation
 =============
+
 The documentation is available on `readthedocs
 <https://persipubsub.readthedocs.io/en/latest/>`_.
 
@@ -312,6 +334,7 @@ development dependencies:
 
 Versioning
 ==========
+
 We follow `Semantic Versioning <http://semver.org/spec/v1.0.0.html>`_.
 The version X.Y.Z indicates:
 
