@@ -21,11 +21,11 @@ def setup(path: pathlib.Path,
     """Create an initialized control"""
     control = persipubsub.control.Control(path=path)
 
-    hwm = persipubsub.queue._HighWaterMark(
+    hwm = persipubsub.queue.HighWaterMark(
         msg_timeout_secs=tests.TEST_MSG_TIMEOUT,
         max_msgs_num=tests.TEST_HWM_MSG_NUM,
         hwm_lmdb_size_bytes=tests.TEST_HWM_LMDB_SIZE)
-    strategy = persipubsub.queue._Strategy.prune_first
+    strategy = persipubsub.queue.Strategy.prune_first
 
     control.init(
         subscriber_ids=sub_list,
@@ -185,7 +185,7 @@ class TestQueue(unittest.TestCase):
 
             # pylint: disable=assignment-from-none
             # pylint: disable=assignment-from-no-return
-            received_msg = queue.front(sub_id=subscriber)
+            received_msg = queue.front(identifier=subscriber)
             self.assertIsNotNone(received_msg)
             self.assertEqual(msg, received_msg)
 
@@ -202,7 +202,7 @@ class TestQueue(unittest.TestCase):
 
             # pylint: disable=assignment-from-none
             # pylint: disable=assignment-from-no-return
-            received_msg = queue.front(sub_id=subscriber)
+            received_msg = queue.front(identifier=subscriber)
             self.assertIsNotNone(received_msg)
 
             with queue.env.begin() as txn:
@@ -213,9 +213,9 @@ class TestQueue(unittest.TestCase):
                 self.assertTrue(cursor.first())
                 pending_before_pop = cursor.value()
 
-            queue.pop(sub_id=subscriber)
+            queue.pop(identifier=subscriber)
 
-            received_msg = queue.front(sub_id=subscriber)
+            received_msg = queue.front(identifier=subscriber)
             self.assertIsNone(received_msg)
 
             with queue.env.begin() as txn:
@@ -238,7 +238,7 @@ class TestQueue(unittest.TestCase):
             queue = persipubsub.queue._Queue()
             queue.init(path=tmp_dir.path)
 
-            self.assertRaises(RuntimeError, queue.pop, sub_id=subscriber)
+            self.assertRaises(RuntimeError, queue.pop, identifier=subscriber)
 
     def test_queue_initialisation(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
@@ -253,9 +253,9 @@ class TestQueue(unittest.TestCase):
                              queue.hwm.hwm_lmdb_size_bytes)
             self.assertEqual(tests.TEST_HWM_MSG_NUM, queue.hwm.max_msgs_num)
             self.assertEqual(tests.TEST_MSG_TIMEOUT, queue.hwm.msg_timeout_secs)
-            self.assertEqual(persipubsub.queue._Strategy.prune_first.name,
+            self.assertEqual(persipubsub.queue.Strategy.prune_first.name,
                              queue.strategy.name)
-            self.assertEqual(['sub'], queue.sub_list)
+            self.assertEqual(['sub'], queue.subscriber_ids)
 
     def test_overflow_msgs_limit(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
@@ -326,7 +326,7 @@ class TestQueue(unittest.TestCase):
 
             queue = persipubsub.queue._Queue()
             queue.init(path=tmp_dir.path)
-            queue.strategy = persipubsub.queue._Strategy.prune_first
+            queue.strategy = persipubsub.queue.Strategy.prune_first
 
             queue.hwm.max_msgs_num = tests.TEST_HWM_MSG_NUM
 
@@ -335,7 +335,7 @@ class TestQueue(unittest.TestCase):
                 queue.put(msg=msg)
 
             self.assertEqual("secret message 0".encode(tests.ENCODING),
-                             queue.front(sub_id='sub'))
+                             queue.front(identifier='sub'))
 
             msg = "secret message {}".format(tests.TEST_HWM_MSG_NUM).encode(
                 tests.ENCODING)
@@ -344,7 +344,7 @@ class TestQueue(unittest.TestCase):
             self.assertEqual(
                 "secret message {}".format(
                     int((tests.TEST_HWM_MSG_NUM / 2) + 1)).encode(
-                        tests.ENCODING), queue.front(sub_id='sub'))
+                        tests.ENCODING), queue.front(identifier='sub'))
 
     def test_strategy_prune_last(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
@@ -352,7 +352,7 @@ class TestQueue(unittest.TestCase):
 
             queue = persipubsub.queue._Queue()
             queue.init(path=tmp_dir.path)
-            queue.strategy = persipubsub.queue._Strategy.prune_last
+            queue.strategy = persipubsub.queue.Strategy.prune_last
 
             queue.hwm.max_msgs_num = tests.TEST_HWM_MSG_NUM
 
@@ -361,14 +361,14 @@ class TestQueue(unittest.TestCase):
                 queue.put(msg=msg)
 
             self.assertEqual("secret message 0".encode(tests.ENCODING),
-                             queue.front(sub_id='sub'))
+                             queue.front(identifier='sub'))
 
             msg = "secret message {}".format(tests.TEST_HWM_MSG_NUM).encode(
                 tests.ENCODING)
             queue.put(msg=msg)
 
             self.assertEqual("secret message 0".encode(tests.ENCODING),
-                             queue.front(sub_id='sub'))
+                             queue.front(identifier='sub'))
 
 
 if __name__ == '__main__':

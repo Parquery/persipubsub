@@ -21,8 +21,8 @@ def setup(path: pathlib.Path,
     """Create an initialized control"""
     control = persipubsub.control.Control(path=path)
 
-    hwm = persipubsub.queue._HighWaterMark()
-    strategy = persipubsub.queue._Strategy.prune_first
+    hwm = persipubsub.queue.HighWaterMark()
+    strategy = persipubsub.queue.Strategy.prune_first
 
     control.init(
         subscriber_ids=sub_list,

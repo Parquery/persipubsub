@@ -19,7 +19,7 @@ class Subscriber:
     """
     Create Subscriber ready to receive messages.
 
-    :ivar sub_id: subscriber ID
+    :ivar identifier: subscriber ID
     :vartype pub_id: str
     :ivar queue: from which messages are received
     :vartype queue: persipubsub.queue.Queue
@@ -27,18 +27,18 @@ class Subscriber:
 
     def __init__(self) -> None:
         """Initialize class object."""
-        self.sub_id = None  # type: Optional[str]
+        self.identifier = None  # type: Optional[str]
         self.queue = None  # type: Optional[persipubsub.queue._Queue]
 
-    def init(self, sub_id: str, path: Union[pathlib.Path, str]) -> None:
+    def init(self, identifier: str, path: Union[pathlib.Path, str]) -> None:
         """
         Initialize.
 
-        :param sub_id: unique subscriber id
+        :param identifier: unique subscriber id
         :param path: path to the queue
         """
-        self.sub_id = sub_id
-        assert isinstance(self.sub_id, str)
+        self.identifier = identifier
+        assert isinstance(self.identifier, str)
         self.queue = persipubsub.queue._Queue()  # pylint: disable=protected-access
         self.queue.init(path=path)
         assert isinstance(self.queue, persipubsub.queue._Queue)
@@ -64,10 +64,10 @@ class Subscriber:
         msg = None
         end = int(datetime.datetime.utcnow().timestamp()) + timeout
         assert isinstance(self.queue, persipubsub.queue._Queue)
-        assert isinstance(self.sub_id, str)
+        assert isinstance(self.identifier, str)
         try:
             while int(datetime.datetime.utcnow().timestamp()) <= end:
-                msg = self.queue.front(sub_id=self.sub_id)
+                msg = self.queue.front(identifier=self.identifier)
                 if msg is not None:
                     break
                 time.sleep(timeout / retries)
@@ -81,8 +81,8 @@ class Subscriber:
     def _pop(self) -> None:
         """Pop a message from the subscriber's lmdb."""
         assert isinstance(self.queue, persipubsub.queue._Queue)
-        assert isinstance(self.sub_id, str)
-        self.queue.pop(sub_id=self.sub_id)
+        assert isinstance(self.identifier, str)
+        self.queue.pop(identifier=self.identifier)
 
     @icontract.require(lambda timeout: timeout > 0)
     @icontract.require(lambda retries: retries > 0)
@@ -104,24 +104,26 @@ class Subscriber:
         """
         assert isinstance(self.queue, persipubsub.queue._Queue)
         assert isinstance(self.queue.env, lmdb.Environment)
-        assert isinstance(self.sub_id, str)
+        assert isinstance(self.identifier, str)
         with self.queue.env.begin(write=False) as txn:
             sub_db = self.queue.env.open_db(
-                key=persipubsub.encoding(self.sub_id), txn=txn, create=False)
+                key=persipubsub.encoding(self.identifier),
+                txn=txn,
+                create=False)
             sub_stat = txn.stat(db=sub_db)
             # pop all message except the most recent one
             msg_to_pop_num = sub_stat['entries'] - 1
 
         for _ in range(msg_to_pop_num):
-            self.queue.pop(sub_id=self.sub_id)
+            self.queue.pop(identifier=self.identifier)
 
         msg = None
         end = int(datetime.datetime.utcnow().timestamp()) + timeout
         assert isinstance(self.queue, persipubsub.queue._Queue)
-        assert isinstance(self.sub_id, str)
+        assert isinstance(self.identifier, str)
         try:
             while int(datetime.datetime.utcnow().timestamp()) <= end:
-                msg = self.queue.front(sub_id=self.sub_id)
+                msg = self.queue.front(identifier=self.identifier)
                 if msg is not None:
                     break
                 time.sleep(timeout / retries)

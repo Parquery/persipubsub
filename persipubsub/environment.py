@@ -32,9 +32,9 @@ class Environment:
                     max_readers: int = 1024,
                     max_size: int = 32 * 1024**3,
                     high_watermark: persipubsub.queue.
-                    _HighWaterMark = persipubsub.queue._HighWaterMark(),
-                    strategy: persipubsub.queue._Strategy = persipubsub.queue.
-                    _Strategy.prune_first) -> persipubsub.control.Control:
+                    HighWaterMark = persipubsub.queue.HighWaterMark(),
+                    strategy: persipubsub.queue.Strategy = persipubsub.queue.
+                    Strategy.prune_first) -> persipubsub.control.Control:
         """
         Fabricate a new control.
 
@@ -69,7 +69,7 @@ class Environment:
         :return: Subscriber to receive messages
         """
         subscriber = persipubsub.subscriber.Subscriber()
-        subscriber.init(sub_id=identifier, path=self.path)
+        subscriber.init(identifier=identifier, path=self.path)
         return subscriber
 
 

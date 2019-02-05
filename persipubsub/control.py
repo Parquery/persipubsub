@@ -38,7 +38,7 @@ def set_queue_parameters(max_reader_num: int, max_db_num: int,
             db=queue_db)
 
 
-def set_hwm(hwm: persipubsub.queue._HighWaterMark,
+def set_hwm(hwm: persipubsub.queue.HighWaterMark,
             env: lmdb.Environment) -> None:
     """
     Set high water mark values for queue.
@@ -62,7 +62,7 @@ def set_hwm(hwm: persipubsub.queue._HighWaterMark,
             db=queue_db)
 
 
-def set_strategy(strategy: persipubsub.queue._Strategy,
+def set_strategy(strategy: persipubsub.queue.Strategy,
                  env: lmdb.Environment) -> None:
     """
     Set pruning strategy for queue.
@@ -124,10 +124,10 @@ class Control:
              subscriber_ids: Optional[Sequence[str]] = None,
              max_readers: int = 1024,
              max_size: int = 32 * 1024**3,
-             high_watermark: persipubsub.queue._HighWaterMark = persipubsub.
-             queue._HighWaterMark(),
-             strategy: persipubsub.queue._Strategy = persipubsub.queue.
-             _Strategy.prune_first) -> None:
+             high_watermark: persipubsub.queue.HighWaterMark = persipubsub.
+             queue.HighWaterMark(),
+             strategy: persipubsub.queue.Strategy = persipubsub.queue.Strategy.
+             prune_first) -> None:
         """
         Initialize control with a (re)initialized queue.
 
@@ -154,8 +154,8 @@ class Control:
         """Reinitialize the queue which is maintained by the control."""
         self.queue = persipubsub.queue._Queue()
         self.queue.init(path=self.path)
-        assert isinstance(self.queue.sub_list, List)
-        self.subscriber_ids = set(self.queue.sub_list)
+        assert isinstance(self.queue.subscriber_ids, List)
+        self.subscriber_ids = set(self.queue.subscriber_ids)
 
     # pylint: disable=too-many-arguments
     @icontract.require(lambda max_readers: max_readers >= 0)
@@ -169,9 +169,9 @@ class Control:
                           max_readers: int = 1024,
                           max_size: int = 32 * 1024**3,
                           high_watermark: persipubsub.queue.
-                          _HighWaterMark = persipubsub.queue._HighWaterMark(),
-                          strategy: persipubsub.queue._Strategy = persipubsub.
-                          queue._Strategy.prune_first) -> None:
+                          HighWaterMark = persipubsub.queue.HighWaterMark(),
+                          strategy: persipubsub.queue.Strategy = persipubsub.
+                          queue.Strategy.prune_first) -> None:
         """
         Initialize queue.
 
@@ -261,7 +261,7 @@ class Control:
         """Prune all dangling messages from the lmdb."""
         assert isinstance(self.queue, persipubsub.queue._Queue)
         persipubsub.queue._prune_dangling_messages_for(
-            queue=self.queue, sub_list=list(self.subscriber_ids))
+            queue=self.queue, subscriber_ids=list(self.subscriber_ids))
 
     # pylint: disable=too-many-locals
     def _prune_all_messages_for(self, sub_id: str) -> None:

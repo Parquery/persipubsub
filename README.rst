@@ -1,9 +1,17 @@
 persipubsub
 ===========
 
-.. image:: https://badges.frapsoft.com/os/mit/mit.png?v=103
-    :target: https://opensource.org/licenses/mit-license.php
-    :alt: MIT License
+.. image:: https://api.travis-ci.com/Parquery/persipubsub.svg?branch=master
+    :target: https://api.travis-ci.com/Parquery/persipubsub.svg?branch=master
+    :alt: Build Status
+
+.. image:: https://coveralls.io/repos/github/Parquery/persipubsub/badge.svg?branch=master
+    :target: https://coveralls.io/github/Parquery/persipubsub?branch=master
+    :alt: Coverage
+
+.. image:: https://readthedocs.org/projects/persipubsub/badge/?version=latest
+    :target: https://persipubsub.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
 .. image:: https://badge.fury.io/py/persipubsub.svg
     :target: https://badge.fury.io/py/persipubsub
@@ -12,9 +20,10 @@ persipubsub
 .. image:: https://img.shields.io/pypi/pyversions/persipubsub.svg
     :alt: PyPI - Python Version
 
-.. image:: https://readthedocs.org/projects/persipubsub/badge/?version=latest
-    :target: https://persipubsub.readthedocs.io/en/latest/?badge=latest
-    :alt: Documentation Status
+.. image:: https://badges.frapsoft.com/os/mit/mit.png?v=103
+    :target: https://opensource.org/licenses/mit-license.php
+    :alt: MIT License
+
 
 
 ``persipubsub`` implements a persistent, thread-safe and process-safe `lmdb
@@ -80,17 +89,31 @@ Usage
 
 The usage of the library consists of two steps: deployment and runtime
 
+Environment
+-----------
+
+For improve the accessibility of the library, an environment class lets you
+create and initialize any ``persipubsub`` component which you need in
+deployment or runtime step.
+
+Initialize environment
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+    import persipubsub.environment
+
+    env = persipubsub.environment.new_environment(path="/home/user/queue/")
+
 Deployment
 ----------
 
-In the deployment stage the library sets up the queue structure which is saved
-in a JSON file.
+In the deployment stage the library sets up the queue structure with the control.
 
-config.json
-^^^^^^^^^^^
+Control
+^^^^^^^
 
-Publishers, subscribers and queues need to be defined before runtime in the
-config JSON file.
+A control unit to initialize and maintain queues.
 
 .. note::
 
@@ -100,65 +123,50 @@ config JSON file.
     prune_first, which deletes the oldest messages, and prune_last, which
     deletes the latest messages.
 
-.. code-block:: json
-
-    {
-        "pub": {
-            "out_queue": "/home/user/queues/queue",
-            "subscribers": ["sub"]
-        },
-        "sub": {
-            "in_queue": "/home/user/queues/queue"
-        },
-        "queues": {
-            "/home/user/queues/queue": {
-                "path": "/home/user/queues/queue",
-                "max_reader_num": 1024,
-                "max_db_num": 1024,
-                "max_db_size_bytes": 34359738368,
-                "subscribers": ["sub"],
-                "high-water-mark": {
-                    "MSG_TIMEOUT_SECS": 600,
-                    "MAX_MSGS_NUM": 10000,
-                    "HWM_LMDB_SIZE_BYTES": 1000000,
-                    "strategy": "prune_first"
-                }
-            }
-        }
-    }
-
-Control
-^^^^^^^
-
-A control unit to initialize and maintain queues.
-
-Initialize all queues
-"""""""""""""""""""""
+Initialize queue
+""""""""""""""""
 
 .. code-block:: python
 
-    import persipubsub.control
+    import persipubsub.environment
+    import persipubsub.queue
 
-    persipubsub.control.initialize_all_dbs(config_pth="/home/user/config.json")
+    env = persipubsub.environment.new_environment(path="/home/user/new-queue/")
+
+    # Initialize a queue with default values.
+    control = env.new_control()
+    # Define all optional parameters of the queue.
+    hwm = persipubsub.queue._HighWaterMark()
+    strategy = persipubsub.queue._Strategy.prune_first
+    control = env.new_control(subscriber_ids=["sub1", "sub2"], max_readers=2,
+                              max_size=10*4096, high_watermark=hwm,
+                              strategy=strategy)
 
 Prune all dangling messages
 """""""""""""""""""""""""""
 
 .. code-block:: python
 
-    import persipubsub.control
+    import persipubsub.environment
 
-    persipubsub.control.prune_dangling_messages(
-        config_pth="/home/user/config.json")
+    env = persipubsub.environment.new_environment(
+        path="/home/user/queue-with-dangling-messages/")
+    control = env.new_control()
+
+    control.prune_dangling_messages()
 
 Clear all messages
 """"""""""""""""""
 
 .. code-block:: python
 
-    import persipubsub.control
+    import persipubsub.environment
 
-    persipubsub.control.clear_all_subs(config_pth="/home/user/config.json")
+    env = persipubsub.environment.new_environment(
+        path="/home/user/queue-with-subscribers-and-messages/")
+    control = env.new_control()
+
+    control.clear_all_subscribers()
 
 
 Runtime
@@ -184,10 +192,11 @@ be initialized as following.
 
 .. code-block:: python
 
-    import persipubsub.publisher
+    import persipubsub.environment
 
-    pub = persipubsub.publisher.Pub()
-    pub.init(pub_id="pub", config_pth="/home/user/config.json")
+    env = persipubsub.environment.new_environment(path="/home/user/queue/")
+
+    pub = env.new_publisher()
 
 Send a message
 """"""""""""""
@@ -197,7 +206,7 @@ Send a message
     msg = "Hello there!".encode('utf-8')
     pub.send(msg=msg)
 
-    # subscribers have now a message in the queue.
+    # Subscribers have now a message in the queue.
 
 Send many messages at once
 """"""""""""""""""""""""""
@@ -222,38 +231,43 @@ be initialized as following.
 
 .. code-block:: python
 
-    import persipubsub.subscriber
+    import persipubsub.environment
 
-    sub = persipubsub.subscriber.Sub()
-    sub.init(sub_id="sub", config_pth="/home/user/config.json")
+    env = persipubsub.environment.new_environment(path="/home/user/queue/")
+
+    sub = env.new_subscriber(identifier="sub")
 
 Receive a message
 """""""""""""""""
 
 .. code-block:: python
 
-    # one message in queue
+    # One message in queue
     with sub.receive() as msg:
         # do something with the message
         print(msg)  # b'Hello there!'
 
-    # sub queue is now empty
+    # This subscriber's queue is now empty
 
 Catch up with latest message
 """"""""""""""""""""""""""""
 
-In case when the subscriber's loop is spinning slower then the publisher's,
-there is a possibility receive the latest message and discard the others ones.
+Used in the case that a particular subscriber cares only about the very last
+message and other subscribers care about all the messages in the queue.
+
+.. note::
+    For the other use case, when you only want to store the latest message and all
+    subscribers are interested only in the latest, then use high water mark
+    max_msgs_num = 1.
 
 .. code-block:: python
 
-    # many outdated messages in queue
-    sub.pop_to_top()
-    # most recent message left in queue
-    with sub.receive() as msg:
-        # do something with the message
+    # Many outdated messages in queue
 
-    # sub queue is now empty
+    with sub.receive_to_top() as msg:
+        # do something with the latest message
+
+    # This subscriber's queue is now empty.
 
 Documentation
 =============

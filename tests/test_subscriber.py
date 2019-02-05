@@ -21,8 +21,8 @@ def setup(path: pathlib.Path,
     """Create an initialized control"""
     control = persipubsub.control.Control(path=path)
 
-    hwm = persipubsub.queue._HighWaterMark()
-    strategy = persipubsub.queue._Strategy.prune_first
+    hwm = persipubsub.queue.HighWaterMark()
+    strategy = persipubsub.queue.Strategy.prune_first
 
     control.init(
         subscriber_ids=sub_list,
@@ -43,7 +43,7 @@ class TestSubscriber(unittest.TestCase):
             queue.init(path=tmp_dir.path)
 
             sub = persipubsub.subscriber.Subscriber()
-            sub.init(sub_id="sub", path=tmp_dir.path)
+            sub.init(identifier="sub", path=tmp_dir.path)
 
             msg = "Hello World!".encode(tests.ENCODING)
             queue.put(msg=msg)
@@ -60,7 +60,7 @@ class TestSubscriber(unittest.TestCase):
             queue.init(path=tmp_dir.path)
 
             sub = persipubsub.subscriber.Subscriber()
-            sub.init(sub_id='sub', path=tmp_dir.path)
+            sub.init(identifier='sub', path=tmp_dir.path)
 
             with sub.receive(timeout=1) as received_msg:
                 self.assertIsNone(received_msg)
@@ -71,7 +71,7 @@ class TestSubscriber(unittest.TestCase):
 
             self.assertEqual(
                 "message send after timeout and will not be popped".encode(
-                    tests.ENCODING), queue.front(sub_id='sub'))
+                    tests.ENCODING), queue.front(identifier='sub'))
 
             with sub.receive(timeout=1) as received_msg:
                 self.assertIsNotNone(received_msg)
@@ -79,7 +79,7 @@ class TestSubscriber(unittest.TestCase):
                     "message send after timeout and will not be popped".encode(
                         tests.ENCODING), received_msg)
 
-            self.assertIsNone(queue.front(sub_id='sub'))
+            self.assertIsNone(queue.front(identifier='sub'))
 
     def test_pop(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
@@ -89,7 +89,7 @@ class TestSubscriber(unittest.TestCase):
             queue.init(path=tmp_dir.path)
 
             sub = persipubsub.subscriber.Subscriber()
-            sub.init(sub_id='sub', path=tmp_dir.path)
+            sub.init(identifier='sub', path=tmp_dir.path)
 
             msg1 = "I'm a message".encode(tests.ENCODING)
             queue.put(msg=msg1)
@@ -111,7 +111,7 @@ class TestSubscriber(unittest.TestCase):
             queue.init(path=tmp_dir.path)
 
             sub = persipubsub.subscriber.Subscriber()
-            sub.init(sub_id='sub', path=tmp_dir.path)
+            sub.init(identifier='sub', path=tmp_dir.path)
 
             self.assertRaises(RuntimeError, sub._pop)
 
@@ -123,7 +123,7 @@ class TestSubscriber(unittest.TestCase):
             queue.init(path=tmp_dir.path)
 
             sub = persipubsub.subscriber.Subscriber()
-            sub.init(sub_id='sub', path=tmp_dir.path)
+            sub.init(identifier='sub', path=tmp_dir.path)
 
             msg1 = "I'm a message".encode(tests.ENCODING)
             queue.put(msg=msg1)

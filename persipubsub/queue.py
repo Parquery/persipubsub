@@ -15,27 +15,27 @@ MAX_MSGS_NUM = 1024 * 64
 HWM_LMDB_SIZE_BYTES = 30 * 1024**3  # type: int
 
 
-class _Strategy(enum.Enum):
+class Strategy(enum.Enum):
     """Store possible strategies."""
 
     prune_first = 0
     prune_last = 1
 
 
-def _parse_strategy(strategy: str) -> _Strategy:
+def _parse_strategy(strategy: str) -> Strategy:
     """
     Parse overflow strategy.
 
     :param strategy: Strategy stored in config
     :return: set overflow strategy
     """
-    if _Strategy.prune_first.name == strategy:
-        return _Strategy.prune_first
+    if Strategy.prune_first.name == strategy:
+        return Strategy.prune_first
 
-    return _Strategy.prune_last
+    return Strategy.prune_last
 
 
-class _HighWaterMark:
+class HighWaterMark:
     """Store high water mark limits."""
 
     def __init__(self,
@@ -77,6 +77,14 @@ def _initialize_environment(
         raise RuntimeError(
             "The queue directory does not exist: {}".format(queue_dir))
 
+    # max_spare_txn: Read-only transactions to cache after becoming unused.
+    # Caching transactions avoids two allocations, one lock and linear scan of
+    # the shared environment per invocation of begin(), Transaction, get(),
+    # gets(), or cursor(). Should match the process’s maximum expected
+    # concurrent transactions (e.g. thread count).
+    # Setting max_spare_txn equals 0 doesn't allow any caching for read-only
+    # transactions to avoid the error:
+    # MDB_BAD_RSLOT: Invalid reuse of reader locktable slot.
     env = lmdb.open(
         path=queue_dir.as_posix(),
         map_size=max_db_size_bytes,
@@ -87,12 +95,13 @@ def _initialize_environment(
     return env
 
 
-def _prune_dangling_messages_for(queue: '_Queue', sub_list: List[str]) -> None:
+def _prune_dangling_messages_for(queue: '_Queue',
+                                 subscriber_ids: List[str]) -> None:
     """
     Prune all dangling messages for subscribers of a queue from lmdb.
 
     :param queue: of which dangling messages should be pruned
-    :param sub_list: subscribers of which dangling messages should be pruned
+    :param subscriber_ids: subscribers of which dangling msgs should be pruned
     """
     assert isinstance(queue.env, lmdb.Environment)
     with queue.env.begin(write=True) as txn:
@@ -117,7 +126,7 @@ def _prune_dangling_messages_for(queue: '_Queue', sub_list: List[str]) -> None:
     # subscriber might still await this messages after the timeout.
     # This messages needs also to be removed from all subscribers.
     msgs_to_delete_timeout = set()
-    assert isinstance(queue.hwm, _HighWaterMark)
+    assert isinstance(queue.hwm, HighWaterMark)
     with queue.env.begin(db=meta_db) as txn:
         cursor = txn.cursor()
 
@@ -135,7 +144,7 @@ def _prune_dangling_messages_for(queue: '_Queue', sub_list: List[str]) -> None:
             txn.delete(key=key, db=data_db)
 
     with queue.env.begin(write=True) as txn:
-        for sub_id in sub_list:
+        for sub_id in subscriber_ids:
             sub_db = queue.env.open_db(
                 key=persipubsub.encoding(sub_id), txn=txn, create=False)
             for key in msgs_to_delete_timeout:
@@ -156,7 +165,7 @@ class _Queue:
         Strategy which will be used to remove messages when high water mark is
         reached.
     :vartype strategy: Strategy
-    :ivar sub_list: all subscribers of the queue
+    :ivar subscriber_ids: all subscribers of the queue
     :vartype sub_list: List[str]
     """
 
@@ -164,9 +173,9 @@ class _Queue:
         """Initialize class object."""
         self.path = None  # type: Optional[pathlib.Path]
         self.env = None  # type: Optional[lmdb.Environment]
-        self.hwm = None  # type: Optional[_HighWaterMark]
-        self.strategy = None  # type: Optional[_Strategy]
-        self.sub_list = None  # type: Optional[List[str]]
+        self.hwm = None  # type: Optional[HighWaterMark]
+        self.strategy = None  # type: Optional[Strategy]
+        self.subscriber_ids = None  # type: Optional[List[str]]
 
     # pylint: disable=too-many-arguments
     # pylint: disable=too-many-locals
@@ -221,7 +230,7 @@ class _Queue:
         hwm_lmdb_size_bytes = persipubsub.bytes_to_int(
             persipubsub.get_queue_data(
                 path=self.path, key=persipubsub.HWM_DB_SIZE_BYTES_KEY))
-        self.hwm = _HighWaterMark(
+        self.hwm = HighWaterMark(
             msg_timeout_secs=msg_timeout_secs,
             max_msgs_num=max_msgs_num,
             hwm_lmdb_size_bytes=hwm_lmdb_size_bytes)
@@ -235,9 +244,9 @@ class _Queue:
             path=self.path, key=persipubsub.SUBSCRIBER_IDS_KEY)
 
         if subscriber_list is None:
-            self.sub_list = []
+            self.subscriber_ids = []
         else:
-            self.sub_list = persipubsub.decoding(
+            self.subscriber_ids = persipubsub.decoding(
                 encoded_str=subscriber_list).split(' ')
 
     def __enter__(self) -> '_Queue':
@@ -259,13 +268,13 @@ class _Queue:
         self.vacuum()
         msg_id = str(datetime.datetime.utcnow().timestamp()) + str(uuid.uuid4())
         assert isinstance(self.env, lmdb.Environment)
-        assert isinstance(self.sub_list, List)
+        assert isinstance(self.subscriber_ids, List)
         with self.env.begin(write=True) as txn:
             pending_db = self.env.open_db(
                 key=persipubsub.PENDING_DB, txn=txn, create=False)
             txn.put(
                 key=persipubsub.encoding(msg_id),
-                value=persipubsub.int_to_bytes(len(self.sub_list)),
+                value=persipubsub.int_to_bytes(len(self.subscriber_ids)),
                 db=pending_db)
 
             meta_db = self.env.open_db(
@@ -280,7 +289,7 @@ class _Queue:
                 key=persipubsub.DATA_DB, txn=txn, create=False)
             txn.put(key=persipubsub.encoding(msg_id), value=msg, db=data_db)
 
-            for sub in self.sub_list:
+            for sub in self.subscriber_ids:
                 sub_db = self.env.open_db(
                     key=persipubsub.encoding(sub), txn=txn, create=False)
                 txn.put(key=persipubsub.encoding(msg_id), db=sub_db)
@@ -296,7 +305,7 @@ class _Queue:
         # every publisher always prunes queue before sending a message.
         self.vacuum()
         assert isinstance(self.env, lmdb.Environment)
-        assert isinstance(self.sub_list, List)
+        assert isinstance(self.subscriber_ids, List)
         with self.env.begin(write=True) as txn:
 
             pending_db = self.env.open_db(
@@ -309,7 +318,7 @@ class _Queue:
                 key=persipubsub.DATA_DB, txn=txn, create=False)
 
             sub_dbs = set()
-            for sub in self.sub_list:
+            for sub in self.subscriber_ids:
                 sub_dbs.add(
                     self.env.open_db(
                         key=persipubsub.encoding(sub), txn=txn, create=False))
@@ -320,7 +329,7 @@ class _Queue:
 
                 txn.put(
                     key=persipubsub.encoding(msg_id),
-                    value=persipubsub.int_to_bytes(len(self.sub_list)),
+                    value=persipubsub.int_to_bytes(len(self.subscriber_ids)),
                     db=pending_db)
 
                 txn.put(
@@ -334,19 +343,19 @@ class _Queue:
                 for sub_db in sub_dbs:
                     txn.put(key=persipubsub.encoding(msg_id), db=sub_db)
 
-    def front(self, sub_id: str) -> Optional[bytes]:
+    def front(self, identifier: str) -> Optional[bytes]:
         """
         Peek at next message in lmdb queue.
 
         Load from LMDB queue into memory and process msg afterwards.
 
-        :param sub_id: Subscriber ID
+        :param identifier: Subscriber ID
         :return:
         """
         assert isinstance(self.env, lmdb.Environment)
         with self.env.begin(write=False) as txn:
             sub_db = self.env.open_db(
-                key=persipubsub.encoding(sub_id), txn=txn, create=False)
+                key=persipubsub.encoding(identifier), txn=txn, create=False)
             data_db = self.env.open_db(
                 key=persipubsub.DATA_DB, txn=txn, create=False)
 
@@ -360,17 +369,17 @@ class _Queue:
 
         return msg
 
-    def pop(self, sub_id: str) -> None:
+    def pop(self, identifier: str) -> None:
         """
         Remove msg from the subscriber's queue and reduce pending subscribers.
 
-        :param sub_id: Subscriber ID
+        :param identifier: Subscriber ID
         :return:
         """
         assert isinstance(self.env, lmdb.Environment)
         with self.env.begin(write=True) as txn:
             sub_db = self.env.open_db(
-                key=persipubsub.encoding(sub_id), txn=txn, create=False)
+                key=persipubsub.encoding(identifier), txn=txn, create=False)
             pending_db = self.env.open_db(
                 key=persipubsub.PENDING_DB, txn=txn, create=False)
 
@@ -396,8 +405,9 @@ class _Queue:
 
         :return:
         """
-        assert isinstance(self.sub_list, List)
-        _prune_dangling_messages_for(queue=self, sub_list=self.sub_list)
+        assert isinstance(self.subscriber_ids, List)
+        _prune_dangling_messages_for(
+            queue=self, subscriber_ids=self.subscriber_ids)
 
     def check_current_lmdb_size(self) -> int:
         """
@@ -442,7 +452,7 @@ class _Queue:
 
         :return:
         """
-        assert isinstance(self.hwm, _HighWaterMark)
+        assert isinstance(self.hwm, HighWaterMark)
         self.prune_dangling_messages()
         msgs_num = self.count_msgs()
         if msgs_num >= self.hwm.max_msgs_num:
@@ -469,7 +479,7 @@ class _Queue:
             entries = meta_stat['entries']
 
             cursor = txn.cursor(db=meta_db)
-            if self.strategy == _Strategy.prune_first:
+            if self.strategy == Strategy.prune_first:
 
                 cursor.first()
                 for index, key in enumerate(
@@ -478,7 +488,7 @@ class _Queue:
                     if index >= int(entries / 2):
                         break
 
-            elif self.strategy == _Strategy.prune_last:
+            elif self.strategy == Strategy.prune_last:
                 cursor.last()
                 for index, key in enumerate(
                         cursor.iterprev(keys=True, values=False)):
@@ -488,7 +498,7 @@ class _Queue:
             else:
                 raise RuntimeError("Pruning strategy not set.")
 
-        assert isinstance(self.sub_list, List)
+        assert isinstance(self.subscriber_ids, List)
         with self.env.begin(write=True) as txn:
             pending_db = self.env.open_db(
                 key=persipubsub.PENDING_DB, txn=txn, create=False)
@@ -499,7 +509,7 @@ class _Queue:
 
             dbs = [pending_db, meta_db, data_db]
 
-            for sub in self.sub_list:
+            for sub in self.subscriber_ids:
                 sub_db = self.env.open_db(
                     key=persipubsub.encoding(sub), txn=txn, create=False)
                 dbs.append(sub_db)
