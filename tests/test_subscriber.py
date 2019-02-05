@@ -115,6 +115,26 @@ class TestSubscriber(unittest.TestCase):
 
             self.assertRaises(RuntimeError, sub._pop)
 
+    def test_receive_to_top(self):
+        with temppathlib.TemporaryDirectory() as tmp_dir:
+            _ = setup(path=tmp_dir.path, sub_list=['sub'])
+
+            queue = persipubsub.queue._Queue()
+            queue.init(path=tmp_dir.path)
+
+            sub = persipubsub.subscriber.Subscriber()
+            sub.init(sub_id='sub', path=tmp_dir.path)
+
+            msg1 = "I'm a message".encode(tests.ENCODING)
+            queue.put(msg=msg1)
+
+            msg2 = "I'm a message too".encode(tests.ENCODING)
+            queue.put(msg=msg2)
+
+            with sub.receive_to_top() as msg:
+                self.assertIsNotNone(msg)
+                self.assertEqual(msg2, msg)
+
 
 if __name__ == '__main__':
     unittest.main()

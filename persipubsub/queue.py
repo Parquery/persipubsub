@@ -84,7 +84,6 @@ def _initialize_environment(
         max_readers=max_reader_num,
         max_dbs=max_db_num,
         max_spare_txns=0)
-    # TODO(snaji): doc
     return env
 
 
@@ -229,7 +228,8 @@ class _Queue:
 
         strategy = persipubsub.get_queue_data(
             path=self.path, key=persipubsub.STRATEGY_KEY)
-        self.strategy = _parse_strategy(strategy.decode(persipubsub.ENCODING))
+        self.strategy = _parse_strategy(
+            persipubsub.decoding(encoded_str=strategy))
 
         subscriber_list = persipubsub.get_queue_data(
             path=self.path, key=persipubsub.SUBSCRIBER_IDS_KEY)
@@ -237,9 +237,8 @@ class _Queue:
         if subscriber_list is None:
             self.sub_list = []
         else:
-            # TODO(snaji): decode method
-            self.sub_list = subscriber_list.decode(
-                persipubsub.ENCODING).split(' ')
+            self.sub_list = persipubsub.decoding(
+                encoded_str=subscriber_list).split(' ')
 
     def __enter__(self) -> '_Queue':
         """Enter the context and give the queue prepared in the constructor."""

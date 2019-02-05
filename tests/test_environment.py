@@ -31,7 +31,6 @@ class TestEnvironment(unittest.TestCase):
         with temppathlib.TemporaryDirectory() as tmp_dir:
             env = persipubsub.environment.new_environment(path=tmp_dir.path)
             ctl = env.new_control()
-            # TODO(snaji): icontract? optional, random number!!!
             ctl.init()
             pub = env.new_publisher()
             self.assertIsInstance(pub, persipubsub.publisher.Publisher)
@@ -40,7 +39,6 @@ class TestEnvironment(unittest.TestCase):
         with temppathlib.TemporaryDirectory() as tmp_dir:
             env = persipubsub.environment.new_environment(path=tmp_dir.path)
             ctl = env.new_control()
-            # TODO(snaji): icontract? optional
             ctl.init()
             sub = env.new_subscriber(identifier="sub")
             self.assertIsInstance(sub, persipubsub.subscriber.Subscriber)

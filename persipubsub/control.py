@@ -95,8 +95,8 @@ def _add_sub(sub_id: str, env: lmdb.Environment) -> None:
         if subscriber_ids is None:
             subscriber_list = []  # type: List[str]
         else:
-            subscriber_list = subscriber_ids.decode(
-                persipubsub.ENCODING).split(' ')
+            subscriber_list = persipubsub.decoding(
+                encoded_str=subscriber_ids).split(' ')
         subscriber_set = set(subscriber_list)
         subscriber_set.add(sub_id)
         subscriber_str = " ".join(subscriber_set)
@@ -138,19 +138,19 @@ class Control:
         :return:
         """
         if self.check_queue_is_initialized():
-            self.reinitialize_queue()
+            self._reinitialize_queue()
         else:
             if subscriber_ids is None:
                 subscriber_ids = []
             assert isinstance(subscriber_ids, Sequence)
-            self.initialize_queue(
+            self._initialize_queue(
                 subscriber_ids=subscriber_ids,
                 max_readers=max_readers,
                 max_size=max_size,
                 high_watermark=high_watermark,
                 strategy=strategy)
 
-    def reinitialize_queue(self) -> None:
+    def _reinitialize_queue(self) -> None:
         """Reinitialize the queue which is maintained by the control."""
         self.queue = persipubsub.queue._Queue()
         self.queue.init(path=self.path)
@@ -158,14 +158,20 @@ class Control:
         self.subscriber_ids = set(self.queue.sub_list)
 
     # pylint: disable=too-many-arguments
-    def initialize_queue(self,
-                         subscriber_ids: Sequence[str],
-                         max_readers: int = 1024,
-                         max_size: int = 32 * 1024**3,
-                         high_watermark: persipubsub.queue.
-                         _HighWaterMark = persipubsub.queue._HighWaterMark(),
-                         strategy: persipubsub.queue._Strategy = persipubsub.
-                         queue._Strategy.prune_first) -> None:
+    @icontract.require(lambda max_readers: max_readers >= 0)
+    # yapf: disable
+    # Each named database needs at least one page of 4096 bytes.
+    @icontract.require(lambda max_size, subscriber_ids:
+                       max_size >= (5 + len(subscriber_ids) * 4096))
+    # yapf: enable
+    def _initialize_queue(self,
+                          subscriber_ids: Sequence[str],
+                          max_readers: int = 1024,
+                          max_size: int = 32 * 1024**3,
+                          high_watermark: persipubsub.queue.
+                          _HighWaterMark = persipubsub.queue._HighWaterMark(),
+                          strategy: persipubsub.queue._Strategy = persipubsub.
+                          queue._Strategy.prune_first) -> None:
         """
         Initialize queue.
 
@@ -182,7 +188,6 @@ class Control:
         # Databases needed for queue:
         # 5 queues (main db, data db, meta db, pending db, queue db)
         # + each subscriber has its own db
-        # TODO(snaji): should it be max(len(sub_ids), max_readers)?
         max_db_num = 5 + len(self.subscriber_ids)
 
         env = persipubsub.queue._initialize_environment(
@@ -211,7 +216,7 @@ class Control:
         """
         Check if queue is initialized.
 
-        :return is initialized when all values for the given keys are set
+        :return: is initialized when all values for the given keys are set
         """
         keys = [
             persipubsub.MAX_DB_SIZE_BYTES_KEY, persipubsub.MAX_DB_NUM_KEY,
@@ -330,8 +335,8 @@ class Control:
             subscriber_ids = txn.get(
                 key=persipubsub.SUBSCRIBER_IDS_KEY, db=queue_db)
 
-            subscriber_list = subscriber_ids.decode(
-                persipubsub.ENCODING).split(' ')
+            subscriber_list = persipubsub.decoding(
+                encoded_str=subscriber_ids).split(' ')
             subscriber_set = set(subscriber_list)
             subscriber_set.remove(sub_id)
             subscriber_str = " ".join(subscriber_set)

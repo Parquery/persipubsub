@@ -84,19 +84,23 @@ class Subscriber:
         assert isinstance(self.sub_id, str)
         self.queue.pop(sub_id=self.sub_id)
 
-    # TODO(snaji): in one transaction?
-    # TODO: receive_to_top() -- akin to receive(), but removes all the messages
-    #  except the top one (in the same transaction)
-    #  TODO: clarify in docs; used in cases where this particular subscriber
-    #   cares only about the very last message; other subscribers care about
-    #   all the messages in the queue
-    # TODO: another use case: you only want to store the latest -- all the
-    #  subscribers are interested only in the latest, use high watermark 1
-    def pop_to_top(self) -> None:
+    @icontract.require(lambda timeout: timeout > 0)
+    @icontract.require(lambda retries: retries > 0)
+    @contextlib.contextmanager
+    def receive_to_top(self, timeout: int = 60, retries: int = 10) -> Generator:
         """
-        Pops all messages until the most recent one.
+        Pops all messages until the most recent one and receive the latest.
 
-        Used for slow processes to ensure realtime processing.
+        Used in the case that a particular subscriber cares only about the very
+        last message and other subscribers care about all the messages in the
+        queue.
+        For another use case, when you only want to store the latest message
+        and all subscribers are interested only in the latest, then use
+        high water mark max_msgs_num = 1.
+
+        :param timeout: time waiting for a message. If none arrived until the
+            timeout then None will be returned. (secs)
+        :param retries: number of tries to check if a msg arrived in the queue
         """
         assert isinstance(self.queue, persipubsub.queue._Queue)
         assert isinstance(self.queue.env, lmdb.Environment)
@@ -110,3 +114,20 @@ class Subscriber:
 
         for _ in range(msg_to_pop_num):
             self.queue.pop(sub_id=self.sub_id)
+
+        msg = None
+        end = int(datetime.datetime.utcnow().timestamp()) + timeout
+        assert isinstance(self.queue, persipubsub.queue._Queue)
+        assert isinstance(self.sub_id, str)
+        try:
+            while int(datetime.datetime.utcnow().timestamp()) <= end:
+                msg = self.queue.front(sub_id=self.sub_id)
+                if msg is not None:
+                    break
+                time.sleep(timeout / retries)
+            yield msg
+        finally:
+            pass
+
+        if msg is not None:
+            self._pop()

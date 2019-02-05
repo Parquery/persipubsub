@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 """Distribute messages persistent from publisher to subscriber."""
-import json
 import pathlib
-from typing import Any, Dict, Union
 
 import lmdb
 
@@ -38,9 +36,19 @@ def encoding(string: str) -> bytes:
     Encode a string with utf-8 encoding.
 
     :param string: any string
-    :return: string encoded as utf-8
+    :return: string encoded with utf-8
     """
     return string.encode(encoding=ENCODING)
+
+
+def decoding(encoded_str: bytes) -> str:
+    """
+    Decode bytes with utf-8 encoding.
+
+    :param encoded_str: any bytes
+    :return: bytes decoded with utf-8
+    """
+    return encoded_str.decode(encoding=ENCODING)
 
 
 def int_to_bytes(value: int) -> bytes:
@@ -84,25 +92,3 @@ def get_queue_data(path: pathlib.Path, key: bytes) -> bytes:
         data = txn.get(key=key, db=queue_db)
 
     return data
-
-
-def put_queue_data(path: pathlib.Path, key: bytes, value: bytes) -> None:
-    """
-    Get queue data.
-
-    :param path: to the queue
-    :param key: of value to store
-    :param value: to store
-    :return:
-    """
-    env = lmdb.open(
-        path=path,
-        map_size=MAX_DB_SIZE_BYTES,
-        subdir=True,
-        max_readers=MAX_READER_NUM,
-        max_dbs=MAX_READER_NUM,
-        max_spare_txns=0)
-
-    with env.begin(write=True) as txn:
-        queue_db = env.open_db(key=QUEUE_DB, txn=txn, create=False)
-        txn.put(key=key, value=value, db=queue_db)
