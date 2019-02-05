@@ -1,13 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Distribute messages persistent from publisher to subscriber."""
 
 import pathlib
-from typing import List, Union
+from typing import List, Optional, Union
 
 import persipubsub.queue
 
+# pylint: disable=protected-access
 
-class Pub:
+
+class Publisher:
     """
     Create Publisher ready to send messages.
 
@@ -21,37 +23,25 @@ class Pub:
     :vartype autosync: bool
     """
 
-    pub_id = None  # type: str
-    queue = None  # type: persipubsub.queue._Queue
-    sub_list = None  # type: List[str]
-    autosync = None  # type: bool
-
     def __init__(self) -> None:
         """Initialize class object."""
+        self.queue = None  # type: Optional[persipubsub.queue._Queue]
+        self.autosync = None  # type: Optional[bool]
 
-    def init(self,
-             pub_id: str,
-             config_pth: Union[pathlib.Path, str],
+    def init(self, path: Union[pathlib.Path, str],
              autosync: bool = False) -> None:
         """
         Initialize.
 
         :param pub_id: constant ID of publisher
-        :param config_pth: path to the JSON config file
+        :param path: path to the queue
         :param autosync: if True, store data automatically in lmdb
         """
-        self.pub_id = pub_id
-
-        config = persipubsub.get_config(path=config_pth)
-        publisher = config[pub_id]
-        queue_dir = publisher["out_queue"]
         self.queue = persipubsub.queue._Queue()  # pylint: disable=protected-access
-        self.queue.init(config_pth=config_pth, queue_dir=queue_dir)
-        assert isinstance(publisher["subscribers"], List)
-        self.sub_list = publisher["subscribers"]  # type: List[str]
+        self.queue.init(path=path)
         self.autosync = autosync
 
-    def __enter__(self) -> 'Pub':
+    def __enter__(self) -> 'Publisher':
         """Enter the context and give the pub prepared in the constructor."""
         return self
 
@@ -64,7 +54,8 @@ class Pub:
 
         :param msg: to send to all subscribers
         """
-        self.queue.put(msg=msg, sub_list=self.sub_list)
+        assert isinstance(self.queue, persipubsub.queue._Queue)
+        self.queue.put(msg=msg)
 
     def send_many(self, msgs: List[bytes]) -> None:
         """
@@ -72,8 +63,9 @@ class Pub:
 
         :param msgs: to send to all subscribers
         """
+        assert isinstance(self.queue, persipubsub.queue._Queue)
         if self.autosync:
             for msg in msgs:
-                self.queue.put(msg=msg, sub_list=self.sub_list)
+                self.queue.put(msg=msg)
         else:
-            self.queue.put_many_flush_once(msgs=msgs, sub_list=self.sub_list)
+            self.queue.put_many_flush_once(msgs=msgs)

@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """Test publisher."""
 
-import json
+import pathlib
 import unittest
+from typing import List
 
-import lmdb
 import temppathlib
 
 import persipubsub.control
@@ -16,23 +16,35 @@ import tests
 # pylint: disable=protected-access
 
 
+def setup(path: pathlib.Path,
+          sub_list: List[str]) -> persipubsub.control.Control:
+    """Create an initialized control"""
+    control = persipubsub.control.Control(path=path)
+
+    hwm = persipubsub.queue._HighWaterMark()
+    strategy = persipubsub.queue._Strategy.prune_first
+
+    control.init(
+        subscriber_ids=sub_list,
+        max_readers=tests.TEST_MAX_READER_NUM,
+        max_size=tests.TEST_MAX_DB_SIZE_BYTES,
+        high_watermark=hwm,
+        strategy=strategy)
+
+    return control
+
+
 class TestPublisher(unittest.TestCase):
     def test_send(self):
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            _ = setup(path=tmp_dir.path, sub_list=['sub'])
 
-            file = tmp_dir.path / "config.json"
-
-            with open(file=file.as_posix(), mode='wt') as file_object:
-                json.dump(config, file_object)
-
-            persipubsub.control.initialize_all_dbs(config_pth=file)
             queue = persipubsub.queue._Queue()
-            queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
+            queue.init(path=tmp_dir.path)
 
-            pub = persipubsub.publisher.Pub()
-            pub.init(pub_id="pub", config_pth=file)
+            pub = persipubsub.publisher.Publisher()
+            pub.init(path=tmp_dir.path)
 
             msg = "Hello world!".encode(tests.ENCODING)
             pub.send(msg=msg)
@@ -53,49 +65,20 @@ class TestPublisher(unittest.TestCase):
                 self.assertIsNotNone(item)
                 self.assertEqual(msg, item)
 
-    def test_send_to_nonexisting_db(self):
-        with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
-
-            file = tmp_dir.path / "config.json"
-
-            with open(file=file.as_posix(), mode='wt') as file_object:
-                json.dump(config, file_object)
-
-            persipubsub.control.initialize_all_dbs(config_pth=file)
-            queue = persipubsub.queue._Queue()
-            queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-
-            pub = persipubsub.publisher.Pub()
-            pub.init(pub_id="pub", config_pth=file)
-
-            pub.sub_list.append('non-existent sub')
-
-            msg = "message for every subscriber".encode(tests.ENCODING)
-            self.assertRaises(lmdb.NotFoundError, pub.send, msg=msg)
-
     def test_send_many(self):
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            subscriber = "sub"
+            _ = setup(path=tmp_dir.path, sub_list=[subscriber])
 
-            file = tmp_dir.path / "config.json"
-
-            with open(file=file.as_posix(), mode='wt') as file_object:
-                json.dump(config, file_object)
-
-            persipubsub.control.initialize_all_dbs(config_pth=file)
-
-            pub = persipubsub.publisher.Pub()
-            pub.init(pub_id='pub', config_pth=file)
+            pub = persipubsub.publisher.Publisher()
+            pub.init(path=tmp_dir.path)
 
             msg = "I'm a message".encode(tests.ENCODING)
             msgs = []
             msg_num = 10
             for _ in range(msg_num):
                 msgs.append(msg)
-
-            subscriber = "sub"
 
             pub.send_many(msgs=msgs)
 

@@ -1,18 +1,21 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Receive messages persistent from publisher to subscriber."""
 
 import contextlib
 import datetime
 import pathlib
 import time
-from typing import Generator, Union
+from typing import Generator, Optional, Union
 
 import icontract
+import lmdb  # pylint: disable=unused-import
 
 import persipubsub.queue
 
+# pylint: disable=protected-access
 
-class Sub:
+
+class Subscriber:
     """
     Create Subscriber ready to receive messages.
 
@@ -22,28 +25,25 @@ class Sub:
     :vartype queue: persipubsub.queue.Queue
     """
 
-    sub_id = None  # type: str
-    queue = None  # type: persipubsub.queue._Queue
-
     def __init__(self) -> None:
         """Initialize class object."""
+        self.sub_id = None  # type: Optional[str]
+        self.queue = None  # type: Optional[persipubsub.queue._Queue]
 
-    def init(self, sub_id: str, config_pth: Union[pathlib.Path, str]) -> None:
+    def init(self, sub_id: str, path: Union[pathlib.Path, str]) -> None:
         """
         Initialize.
 
         :param sub_id: unique subscriber id
-        :param config_pth: path to the JSON config file
+        :param path: path to the queue
         """
         self.sub_id = sub_id
-
-        config = persipubsub.get_config(path=config_pth)
-        subscriber = config[sub_id]
-        queue_dir = subscriber["in_queue"]
+        assert isinstance(self.sub_id, str)
         self.queue = persipubsub.queue._Queue()  # pylint: disable=protected-access
-        self.queue.init(config_pth=config_pth, queue_dir=queue_dir)
+        self.queue.init(path=path)
+        assert isinstance(self.queue, persipubsub.queue._Queue)
 
-    def __enter__(self) -> 'Sub':
+    def __enter__(self) -> 'Subscriber':
         """Enter the context and give the sub prepared in the constructor."""
         return self
 
@@ -63,6 +63,8 @@ class Sub:
         """
         msg = None
         end = int(datetime.datetime.utcnow().timestamp()) + timeout
+        assert isinstance(self.queue, persipubsub.queue._Queue)
+        assert isinstance(self.sub_id, str)
         try:
             while int(datetime.datetime.utcnow().timestamp()) <= end:
                 msg = self.queue.front(sub_id=self.sub_id)
@@ -78,14 +80,27 @@ class Sub:
 
     def _pop(self) -> None:
         """Pop a message from the subscriber's lmdb."""
+        assert isinstance(self.queue, persipubsub.queue._Queue)
+        assert isinstance(self.sub_id, str)
         self.queue.pop(sub_id=self.sub_id)
 
+    # TODO(snaji): in one transaction?
+    # TODO: receive_to_top() -- akin to receive(), but removes all the messages
+    #  except the top one (in the same transaction)
+    #  TODO: clarify in docs; used in cases where this particular subscriber
+    #   cares only about the very last message; other subscribers care about
+    #   all the messages in the queue
+    # TODO: another use case: you only want to store the latest -- all the
+    #  subscribers are interested only in the latest, use high watermark 1
     def pop_to_top(self) -> None:
         """
         Pops all messages until the most recent one.
 
         Used for slow processes to ensure realtime processing.
         """
+        assert isinstance(self.queue, persipubsub.queue._Queue)
+        assert isinstance(self.queue.env, lmdb.Environment)
+        assert isinstance(self.sub_id, str)
         with self.queue.env.begin(write=False) as txn:
             sub_db = self.queue.env.open_db(
                 key=persipubsub.encoding(self.sub_id), txn=txn, create=False)

@@ -2,7 +2,7 @@
 """Test control unit."""
 
 import datetime
-import json
+import pathlib
 import unittest
 from typing import List
 
@@ -16,53 +16,35 @@ import tests
 # pylint: disable=protected-access
 
 
+def setup(path: pathlib.Path,
+          sub_list: List[str]) -> persipubsub.control.Control:
+    """Create an initialized control"""
+    control = persipubsub.control.Control(path=path)
+
+    hwm = persipubsub.queue._HighWaterMark()
+    strategy = persipubsub.queue._Strategy.prune_first
+
+    control.init(
+        subscriber_ids=sub_list,
+        max_readers=tests.TEST_MAX_READER_NUM,
+        max_size=tests.TEST_MAX_DB_SIZE_BYTES,
+        high_watermark=hwm,
+        strategy=strategy)
+
+    return control
+
+
 class TestControl(unittest.TestCase):
     def test_initialize_all(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
-
-            file = tmp_dir.path / "config.json"
-
-            with open(file=file.as_posix(), mode='wt') as file_object:
-                json.dump(config, file_object)
-
-            persipubsub.control.initialize_all_dbs(config_pth=file)
-
-            queue = persipubsub.queue._Queue()
-            queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-
-            expected_db_keys = [b'data_db', b'meta_db', b'pending_db', b'sub']
-            db_keys = []  # type: List[bytes]
-
-            with queue.env.begin() as txn:
-                cursor = txn.cursor()
-                cursor.first()
-                for key, value in cursor:  # pylint: disable=unused-variable
-                    db_keys.append(key)
-
-            self.assertListEqual(sorted(expected_db_keys), sorted(db_keys))
-
-    def test_add_sub(self):
-        with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
-
-            file = tmp_dir.path / "config.json"
-
-            with open(file=file.as_posix(), mode='wt') as file_object:
-                json.dump(config, file_object)
-
-            queue = persipubsub.queue._Queue()
-            queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-
-            persipubsub.control._add_sub(sub_id="sub1", queue=queue)
-            persipubsub.control._add_sub(sub_id="sub2", queue=queue)
+            control = setup(path=tmp_dir.path, sub_list=['sub'])
 
             expected_db_keys = [
-                b'data_db', b'meta_db', b'pending_db', b'sub1', b'sub2'
+                b'data_db', b'meta_db', b'pending_db', b'queue_db', b'sub'
             ]
             db_keys = []  # type: List[bytes]
 
-            with queue.env.begin() as txn:
+            with control.queue.env.begin() as txn:
                 cursor = txn.cursor()
                 cursor.first()
                 for key, value in cursor:  # pylint: disable=unused-variable
@@ -72,24 +54,16 @@ class TestControl(unittest.TestCase):
 
     def test_del_sub(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            control = setup(path=tmp_dir.path, sub_list=["sub1", "sub2"])
 
-            file = tmp_dir.path / "config.json"
+            control._remove_sub(sub_id="sub2", env=control.queue.env)
 
-            with open(file=file.as_posix(), mode='wt') as file_object:
-                json.dump(config, file_object)
-
-            queue = persipubsub.queue._Queue()
-            queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-
-            persipubsub.control._add_sub(sub_id="sub1", queue=queue)
-            persipubsub.control._add_sub(sub_id="sub2", queue=queue)
-            persipubsub.control._remove_sub(sub_id="sub2", queue=queue)
-
-            expected_db_keys = [b'data_db', b'meta_db', b'pending_db', b'sub1']
+            expected_db_keys = [
+                b'data_db', b'meta_db', b'pending_db', b'queue_db', b'sub1'
+            ]
             db_keys = []  # type: List[bytes]
 
-            with queue.env.begin() as txn:
+            with control.queue.env.begin() as txn:
                 cursor = txn.cursor()
                 cursor.first()
                 for key, value in cursor:  # pylint: disable=unused-variable
@@ -99,23 +73,16 @@ class TestControl(unittest.TestCase):
 
     def test_clear_all_subs(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            control = setup(path=tmp_dir.path, sub_list=["sub1", "sub2"])
 
-            file = tmp_dir.path / "config.json"
+            control.clear_all_subscribers()
 
-            with open(file=file.as_posix(), mode='wt') as file_object:
-                json.dump(config, file_object)
-
-            queue = persipubsub.queue._Queue()
-            queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-
-            persipubsub.control.initialize_all_dbs(config_pth=file)
-            persipubsub.control.clear_all_subs(config_pth=file)
-
-            expected_db_keys = [b'data_db', b'meta_db', b'pending_db']
+            expected_db_keys = [
+                b'data_db', b'meta_db', b'pending_db', b'queue_db'
+            ]
             db_keys = []  # type: List[bytes]
 
-            with queue.env.begin() as txn:
+            with control.queue.env.begin() as txn:
                 cursor = txn.cursor()
                 cursor.first()
                 for key, value in cursor:  # pylint: disable=unused-variable
@@ -126,27 +93,18 @@ class TestControl(unittest.TestCase):
     def test_prune_dangling_messages(self):
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
+            control = setup(path=tmp_dir.path, sub_list=["sub"])
 
-            file = tmp_dir.path / "config.json"
+            control.queue.hwm.msg_timeout_secs = tests.TEST_MSG_TIMEOUT
 
-            with open(file=file.as_posix(), mode='wt') as file_object:
-                json.dump(config, file_object)
-
-            persipubsub.control.initialize_all_dbs(config_pth=file)
-
-            queue = persipubsub.queue._Queue()
-            queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-            queue.hwm.msg_timeout_secs = tests.TEST_MSG_TIMEOUT
-
-            with queue.env.begin(write=True) as txn:
-                sub_db = queue.env.open_db(
+            with control.queue.env.begin(write=True) as txn:
+                sub_db = control.queue.env.open_db(
                     key='sub'.encode(tests.ENCODING), txn=txn, create=False)
 
                 txn.put(key="timeout_msg".encode(tests.ENCODING), db=sub_db)
                 txn.put(key="valid_msg".encode(tests.ENCODING), db=sub_db)
-            with queue.env.begin(write=True) as txn:
-                data_db = queue.env.open_db(
+            with control.queue.env.begin(write=True) as txn:
+                data_db = control.queue.env.open_db(
                     key=tests.DATA_DB, txn=txn, create=False)
 
                 txn.put(
@@ -161,8 +119,8 @@ class TestControl(unittest.TestCase):
                     key="valid_msg".encode(tests.ENCODING),
                     value="Free me!".encode(tests.ENCODING),
                     db=data_db)
-            with queue.env.begin(write=True) as txn:
-                pending_db = queue.env.open_db(
+            with control.queue.env.begin(write=True) as txn:
+                pending_db = control.queue.env.open_db(
                     key=tests.PENDING_DB, txn=txn, create=False)
 
                 txn.put(
@@ -181,8 +139,8 @@ class TestControl(unittest.TestCase):
                         length=tests.BYTES_LENGTH, byteorder=tests.BYTES_ORDER),
                     db=pending_db)
 
-            with queue.env.begin(write=True) as txn:
-                meta_db = queue.env.open_db(
+            with control.queue.env.begin(write=True) as txn:
+                meta_db = control.queue.env.open_db(
                     key=tests.META_DB, txn=txn, create=False)
 
                 txn.put(
@@ -203,7 +161,7 @@ class TestControl(unittest.TestCase):
                         length=tests.BYTES_LENGTH, byteorder=tests.BYTES_ORDER),
                     db=meta_db)
 
-            persipubsub.control.prune_dangling_messages(config_pth=file)
+            control.prune_dangling_messages()
 
             dbs = [sub_db, data_db, pending_db, meta_db]
 
@@ -212,7 +170,7 @@ class TestControl(unittest.TestCase):
 
             # pylint: disable=invalid-name
             for db in dbs:
-                with queue.env.begin(db=db) as txn:
+                with control.queue.env.begin(db=db) as txn:
                     cursor = txn.cursor()
                     cursor.first()
                     for key, value in cursor:  # pylint: disable=unused-variable
@@ -223,37 +181,37 @@ class TestControl(unittest.TestCase):
 
     def test_prune_all_messages_for_subscriber(self):
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            config = tests.generate_test_config(path=tmp_dir.path)
-
-            file = tmp_dir.path / "config.json"
-
-            with open(file=file.as_posix(), mode='wt') as file_object:
-                json.dump(config, file_object)
-
-            queue = persipubsub.queue._Queue()
-            queue.init(config_pth=file, queue_dir=tmp_dir.path / "queue")
-
-            persipubsub.control.initialize_all_dbs(config_pth=file)
+            control = setup(path=tmp_dir.path, sub_list=["sub"])
 
             msg = persipubsub.encoding("hello world!")
 
-            queue.put(msg=msg, sub_list=["sub"])
-            queue.put(msg=msg, sub_list=["sub"])
+            control.queue.put(msg=msg)
+            control.queue.put(msg=msg)
 
-            with queue.env.begin(write=False) as txn:
-                sub_db = queue.env.open_db(
+            with control.queue.env.begin(write=False) as txn:
+                sub_db = control.queue.env.open_db(
                     key=persipubsub.encoding('sub'), txn=txn, create=False)
                 sub_stat = txn.stat(db=sub_db)
                 self.assertEqual(2, sub_stat['entries'])
 
-            persipubsub.control._prune_all_messages_for(
-                sub_id="sub", queue=queue)
+            control._prune_all_messages_for(sub_id="sub")
 
-            with queue.env.begin(write=False) as txn:
-                sub_db = queue.env.open_db(
+            with control.queue.env.begin(write=False) as txn:
+                sub_db = control.queue.env.open_db(
                     key=persipubsub.encoding('sub'), txn=txn, create=False)
                 sub_stat = txn.stat(db=sub_db)
                 self.assertEqual(0, sub_stat['entries'])
+
+    def test_is_initialized(self):
+        with temppathlib.TemporaryDirectory() as tmp_dir:
+            control = setup(path=tmp_dir.path, sub_list=["sub"])
+
+            self.assertTrue(control.check_queue_is_initialized())
+
+    def test_is_not_initialized(self):
+        with temppathlib.TemporaryDirectory() as tmp_dir:
+            control = persipubsub.control.Control(path=tmp_dir.path)
+            self.assertFalse(control.check_queue_is_initialized())
 
 
 if __name__ == '__main__':
