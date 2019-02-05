@@ -155,7 +155,7 @@ class _Queue:
     """
     Queue messages persistently from many publishers for many subscribers.
 
-    :ivar config_pth: path to the JSON config file
+    :ivar path: to the queue
     :vartype config_pth: pathlib.Path
     :ivar env: LMDB environment on disk
     :vartype env: lmdb.Environment

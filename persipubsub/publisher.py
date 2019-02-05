@@ -13,12 +13,8 @@ class Publisher:
     """
     Create Publisher ready to send messages.
 
-    :ivar pub_id: publisher ID
-    :vartype pub_id: str
     :ivar queue: on which messages are published
     :vartype queue: persipubsub.queue.Queue
-    :ivar sub_list: list of subscriber to which messages are send
-    :vartype sub_list: List[str]
     :ivar autosync: sync after each message or after multiple messages
     :vartype autosync: bool
     """
@@ -33,7 +29,6 @@ class Publisher:
         """
         Initialize.
 
-        :param pub_id: constant ID of publisher
         :param path: path to the queue
         :param autosync: if True, store data automatically in lmdb
         """

@@ -135,6 +135,7 @@ class Control:
         :param max_readers: max number of reader of the lmdb
         :param max_size: max size of the lmdb in bytes
         :param high_watermark: high water mark limit of the queue
+        :param strategy: used to prune queue
         :return:
         """
         if self.check_queue_is_initialized():
@@ -179,6 +180,7 @@ class Control:
         :param max_readers: max number of reader of the lmdb
         :param max_size: max size of the lmdb in bytes
         :param high_watermark: high water mark limit of the queue
+        :param strategy: used to prune queue
         :return:
         """
         if not self.path.exists():

@@ -15,8 +15,12 @@ import persipubsub.subscriber
 class Environment:
     """Fabricate persipubsub components."""
 
-    def __init__(self, path: pathlib.Path):
-        """Initialize."""
+    def __init__(self, path: pathlib.Path) -> None:
+        """
+        Initialize.
+
+        :param path: to the queue
+        """
         self.path = path
 
     def __enter__(self) -> 'Environment':
@@ -38,7 +42,12 @@ class Environment:
         """
         Fabricate a new control.
 
-        :return: Control to initialize queues
+        :param subscriber_ids: subscribers of the queue
+        :param max_readers: max number of reader of the lmdb
+        :param max_size: max size of the lmdb in bytes
+        :param high_watermark: high water mark limit of the queue
+        :param strategy: used to prune queue
+        :return: Control to create and maintain queue
         """
         control = persipubsub.control.Control(path=self.path)
         control.init(
@@ -54,6 +63,7 @@ class Environment:
         """
         Fabricate a new publisher.
 
+        :param autosync: if True, store data automatically in lmdb
         :return: Publisher to send messages
         """
         publisher = persipubsub.publisher.Publisher()
