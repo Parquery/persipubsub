@@ -37,7 +37,7 @@ setup(
     install_requires=[
         # yapf: disable
         'typing-extensions>=3.7.2',
-        'icontract>=2.0.1,<3',
+        'icontract>=2.0.2,<3',
         'lmdb>=0.94,<1'
         # yapf: enable
     ],
@@ -62,6 +62,7 @@ setup(
         ]
     },
     py_modules=['persipubsub', 'persipubsub_meta'],
-    include_package_data=True,
-    package_data={"persipubsub": ["py.typed"]},
-    data_files=[('.', ['LICENSE', 'README.rst'])])
+    package_data={
+        "persipubsub": ["py.typed"],
+        '.': ['LICENSE', 'README.rst']
+    })
