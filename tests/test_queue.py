@@ -6,6 +6,7 @@ import time
 import unittest
 from typing import List
 
+import lmdb
 import temppathlib
 
 import persipubsub.control
@@ -38,7 +39,7 @@ def setup(path: pathlib.Path,
 
 
 class TestQueue(unittest.TestCase):
-    def test_initialize_environment(self):
+    def test_initialize_environment(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             env = persipubsub.queue._initialize_environment(
                 queue_dir=tmp_dir.path)
@@ -60,7 +61,7 @@ class TestQueue(unittest.TestCase):
                 'num_readers': 1
             }, env.info())
 
-    def test_put_to_single_subscriber(self):
+    def test_put_to_single_subscriber(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             msg = "I'm a message.".encode(tests.ENCODING)
 
@@ -72,6 +73,7 @@ class TestQueue(unittest.TestCase):
             queue.init(path=tmp_dir.path)
             queue.put(msg=msg)
 
+            assert isinstance(queue.env, lmdb.Environment)
             with queue.env.begin() as txn:
                 self.assertIsNotNone(
                     txn.get(key=subscriber.encode(tests.ENCODING)))
@@ -91,7 +93,7 @@ class TestQueue(unittest.TestCase):
                 self.assertIsNotNone(value)
                 self.assertEqual(msg, value)
 
-    def test_put_multiple_subscriber(self):
+    def test_put_multiple_subscriber(self) -> None:
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
             msg = "I'm a message.".encode(tests.ENCODING)
@@ -105,6 +107,7 @@ class TestQueue(unittest.TestCase):
 
             queue.put(msg=msg)
 
+            assert isinstance(queue.env, lmdb.Environment)
             with queue.env.begin() as txn:
                 self.assertIsNotNone(
                     txn.get(key=sub_list[0].encode(tests.ENCODING)))
@@ -137,7 +140,7 @@ class TestQueue(unittest.TestCase):
                 self.assertIsNotNone(value)
                 self.assertEqual(msg, value)
 
-    def test_put_many(self):
+    def test_put_many(self) -> None:
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
             subscriber = "sub"
@@ -154,6 +157,7 @@ class TestQueue(unittest.TestCase):
 
             queue.put_many_flush_once(msgs=msgs)
 
+            assert isinstance(queue.env, lmdb.Environment)
             with queue.env.begin(write=False) as txn:
                 self.assertIsNotNone(
                     txn.get(key=subscriber.encode(tests.ENCODING)))
@@ -172,7 +176,7 @@ class TestQueue(unittest.TestCase):
                 data_stat = txn.stat(db=data_db)
                 self.assertEqual(msg_num, data_stat['entries'])
 
-    def test_front(self):
+    def test_front(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             msg = "I'm a message.".encode(tests.ENCODING)
 
@@ -189,7 +193,7 @@ class TestQueue(unittest.TestCase):
             self.assertIsNotNone(received_msg)
             self.assertEqual(msg, received_msg)
 
-    def test_pop(self):
+    def test_pop(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             msg = "I'm a message.".encode(tests.ENCODING)
 
@@ -205,6 +209,7 @@ class TestQueue(unittest.TestCase):
             received_msg = queue.front(identifier=subscriber)
             self.assertIsNotNone(received_msg)
 
+            assert isinstance(queue.env, lmdb.Environment)
             with queue.env.begin() as txn:
                 pending_db = queue.env.open_db(
                     key=tests.PENDING_DB, txn=txn, create=False)
@@ -229,7 +234,7 @@ class TestQueue(unittest.TestCase):
                 int.from_bytes(pending_before_pop, tests.BYTES_ORDER) - 1,
                 int.from_bytes(pending_after_pop, tests.BYTES_ORDER))
 
-    def test_pop_queue_empty(self):
+    def test_pop_queue_empty(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
 
             subscriber = "sub"
@@ -240,7 +245,7 @@ class TestQueue(unittest.TestCase):
 
             self.assertRaises(RuntimeError, queue.pop, identifier=subscriber)
 
-    def test_queue_initialisation(self):
+    def test_queue_initialisation(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             _ = setup(path=tmp_dir.path, sub_list=['sub'])
 
@@ -248,22 +253,26 @@ class TestQueue(unittest.TestCase):
             queue.init(path=tmp_dir.path)
 
             self.assertIsNotNone(queue.env)
+            assert isinstance(queue.env, lmdb.Environment)
             self.assertEqual(tmp_dir.path.as_posix(), queue.env.path())
+            assert isinstance(queue.hwm, persipubsub.queue.HighWaterMark)
             self.assertEqual(tests.TEST_HWM_LMDB_SIZE,
                              queue.hwm.hwm_lmdb_size_bytes)
             self.assertEqual(tests.TEST_HWM_MSG_NUM, queue.hwm.max_msgs_num)
             self.assertEqual(tests.TEST_MSG_TIMEOUT, queue.hwm.msg_timeout_secs)
+            assert isinstance(queue.strategy, persipubsub.queue.Strategy)
             self.assertEqual(persipubsub.queue.Strategy.prune_first.name,
                              queue.strategy.name)
             self.assertEqual(['sub'], queue.subscriber_ids)
 
-    def test_overflow_msgs_limit(self):
+    def test_overflow_msgs_limit(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             _ = setup(path=tmp_dir.path, sub_list=['sub'])
 
             queue = persipubsub.queue._Queue()
             queue.init(path=tmp_dir.path)
 
+            assert isinstance(queue.hwm, persipubsub.queue.HighWaterMark)
             queue.hwm.max_msgs_num = tests.TEST_HWM_MSG_NUM
 
             msg = "hello world".encode(tests.ENCODING)
@@ -280,13 +289,14 @@ class TestQueue(unittest.TestCase):
                 int(tests.TEST_HWM_MSG_NUM - int(tests.TEST_HWM_MSG_NUM / 2)),
                 queue.count_msgs())
 
-    def test_overflow_limit_size(self):
+    def test_overflow_limit_size(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             _ = setup(path=tmp_dir.path, sub_list=['sub'])
 
             queue = persipubsub.queue._Queue()
             queue.init(path=tmp_dir.path)
 
+            assert isinstance(queue.hwm, persipubsub.queue.HighWaterMark)
             queue.hwm.hwm_lmdb_size_bytes = tests.TEST_HWM_LMDB_SIZE
 
             msg = ("a" * (int(tests.LMDB_PAGE_SIZE / 4))).encode(tests.ENCODING)
@@ -302,12 +312,14 @@ class TestQueue(unittest.TestCase):
             self.assertTrue(
                 queue.check_current_lmdb_size() <= tests.TEST_HWM_LMDB_SIZE)
 
-    def test_timeout(self):
+    def test_timeout(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             _ = setup(path=tmp_dir.path, sub_list=['sub'])
 
             queue = persipubsub.queue._Queue()
             queue.init(path=tmp_dir.path)
+
+            assert isinstance(queue.hwm, persipubsub.queue.HighWaterMark)
             queue.hwm.msg_timeout_secs = tests.TEST_MSG_TIMEOUT
 
             msg = "hello world".encode(tests.ENCODING)
@@ -320,7 +332,7 @@ class TestQueue(unittest.TestCase):
             queue.put(msg=msg)
             self.assertEqual(1, queue.count_msgs())
 
-    def test_strategy_prune_first(self):
+    def test_strategy_prune_first(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             _ = setup(path=tmp_dir.path, sub_list=['sub'])
 
@@ -328,6 +340,7 @@ class TestQueue(unittest.TestCase):
             queue.init(path=tmp_dir.path)
             queue.strategy = persipubsub.queue.Strategy.prune_first
 
+            assert isinstance(queue.hwm, persipubsub.queue.HighWaterMark)
             queue.hwm.max_msgs_num = tests.TEST_HWM_MSG_NUM
 
             for index in range(tests.TEST_HWM_MSG_NUM):
@@ -346,7 +359,7 @@ class TestQueue(unittest.TestCase):
                     int((tests.TEST_HWM_MSG_NUM / 2) + 1)).encode(
                         tests.ENCODING), queue.front(identifier='sub'))
 
-    def test_strategy_prune_last(self):
+    def test_strategy_prune_last(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             _ = setup(path=tmp_dir.path, sub_list=['sub'])
 
@@ -354,6 +367,7 @@ class TestQueue(unittest.TestCase):
             queue.init(path=tmp_dir.path)
             queue.strategy = persipubsub.queue.Strategy.prune_last
 
+            assert isinstance(queue.hwm, persipubsub.queue.HighWaterMark)
             queue.hwm.max_msgs_num = tests.TEST_HWM_MSG_NUM
 
             for index in range(tests.TEST_HWM_MSG_NUM):

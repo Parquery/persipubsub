@@ -88,7 +88,7 @@ def _add_sub(sub_id: str, env: lmdb.Environment) -> None:
     with env.begin(write=True) as txn:
         _ = env.open_db(key=persipubsub.encoding(sub_id), txn=txn, create=True)
 
-        queue_db = env.open_db(persipubsub.QUEUE_DB, txn=txn, create=False)
+        queue_db = env.open_db(persipubsub.QUEUE_DB, txn=txn, create=True)
         subscriber_ids = txn.get(
             key=persipubsub.SUBSCRIBER_IDS_KEY, db=queue_db)
 
@@ -118,6 +118,7 @@ class Control:
         self.path = path
         self.queue = None  # type: Optional[persipubsub.queue._Queue]
         self.subscriber_ids = set()  # type: Set[str]
+        self.env = None  # type: Optional[lmdb.Environment]
 
     # pylint: disable=too-many-arguments
     def init(self,
@@ -160,10 +161,10 @@ class Control:
 
     # pylint: disable=too-many-arguments
     @icontract.require(lambda max_readers: max_readers >= 0)
-    # yapf: disable
     # Each named database needs at least one page of 4096 bytes.
-    @icontract.require(lambda max_size, subscriber_ids:
-                       max_size >= (5 + len(subscriber_ids) * 4096))
+    # yapf: disable
+    @icontract.require(lambda max_size, subscriber_ids: max_size >= (
+            5 + len(subscriber_ids) * 4096))
     # yapf: enable
     def _initialize_queue(self,
                           subscriber_ids: Sequence[str],
@@ -204,6 +205,7 @@ class Control:
             max_db_size_bytes=max_size,
             env=env)
 
+        self.env = env
         set_hwm(hwm=high_watermark, env=env)
         set_strategy(strategy=strategy, env=env)
 
@@ -230,7 +232,7 @@ class Control:
         for key in keys:
 
             try:
-                value = persipubsub.get_queue_data(path=self.path, key=key)
+                value = persipubsub.get_queue_data(key=key, env=self.env)
             except lmdb.NotFoundError:
                 return False
 

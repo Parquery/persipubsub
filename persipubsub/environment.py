@@ -2,7 +2,7 @@
 """Fabricate new persipubsub components."""
 
 import pathlib
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 import persipubsub.control
 import persipubsub.publisher
@@ -27,7 +27,7 @@ class Environment:
         """Enter the context and give environment prepared to constructor."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Leave the context."""
 
     # pylint: disable=too-many-arguments

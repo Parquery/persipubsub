@@ -71,24 +71,17 @@ def bytes_to_int(array_of_bytes: bytes) -> int:
     return int.from_bytes(bytes=array_of_bytes, byteorder=BYTES_ORDER)
 
 
-def get_queue_data(path: pathlib.Path, key: bytes) -> bytes:
+def get_queue_data(key: bytes, env: lmdb.Environment) -> bytes:
     """
     Get queue data.
 
-    :param path: to the queue
     :param key: for lookup
+    :param env: environment that stores queue data
     :return: lookup result
     """
-    env = lmdb.open(
-        path=path.as_posix(),
-        map_size=MAX_DB_SIZE_BYTES,
-        subdir=True,
-        max_readers=MAX_READER_NUM,
-        max_dbs=MAX_READER_NUM,
-        max_spare_txns=0)
-
     with env.begin(write=False) as txn:
         queue_db = env.open_db(key=QUEUE_DB, txn=txn, create=False)
         data = txn.get(key=key, db=queue_db)
 
+    assert isinstance(data, bytes)
     return data

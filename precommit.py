@@ -41,7 +41,7 @@ def main() -> int:
                               cwd=repo_root.as_posix())
 
     print("Mypy'ing...")
-    subprocess.check_call(["mypy", "persipubsub", "tests"],
+    subprocess.check_call(["mypy", "--strict", "persipubsub", "tests"],
                           cwd=repo_root.as_posix())
 
     print("Isort'ing...")

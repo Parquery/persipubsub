@@ -36,7 +36,7 @@ QUEUE_DB = "queue_db".encode(ENCODING)  # queue_pth | all queue data
 
 
 class TestPersiPubSub(unittest.TestCase):
-    def test_get_data(self):
+    def test_get_data(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             env = lmdb.open(path=tmp_dir.path.as_posix(), max_dbs=2)
 
@@ -48,7 +48,7 @@ class TestPersiPubSub(unittest.TestCase):
                     db=queue_db)
 
             data = persipubsub.get_queue_data(
-                path=tmp_dir.path, key="key".encode(ENCODING))
+                key="key".encode(ENCODING), env=env)
         self.assertEqual(b'value', data)
 
 

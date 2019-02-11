@@ -5,7 +5,7 @@ import contextlib
 import datetime
 import pathlib
 import time
-from typing import Generator, Optional, Union
+from typing import Any, Iterator, Optional, Union
 
 import icontract
 import lmdb  # pylint: disable=unused-import
@@ -47,13 +47,14 @@ class Subscriber:
         """Enter the context and give the sub prepared in the constructor."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Leave the context."""
 
     @icontract.require(lambda timeout: timeout > 0)
     @icontract.require(lambda retries: retries > 0)
     @contextlib.contextmanager
-    def receive(self, timeout: int = 60, retries: int = 10) -> Generator:
+    def receive(self, timeout: int = 60,
+                retries: int = 10) -> Iterator[Optional[bytes]]:
         """
         Receive messages from the publisher.
 
@@ -87,7 +88,8 @@ class Subscriber:
     @icontract.require(lambda timeout: timeout > 0)
     @icontract.require(lambda retries: retries > 0)
     @contextlib.contextmanager
-    def receive_to_top(self, timeout: int = 60, retries: int = 10) -> Generator:
+    def receive_to_top(self, timeout: int = 60,
+                       retries: int = 10) -> Iterator[Optional[bytes]]:
         """
         Pops all messages until the most recent one and receive the latest.
 

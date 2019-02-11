@@ -4,7 +4,7 @@ import datetime
 import enum
 import pathlib
 import uuid
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import lmdb
 
@@ -91,7 +91,7 @@ def _initialize_environment(
         subdir=True,
         max_readers=max_reader_num,
         max_dbs=max_db_num,
-        max_spare_txns=0)
+        max_spare_txns=1)
     return env
 
 
@@ -195,19 +195,24 @@ class _Queue:
         self.path = path if isinstance(path, pathlib.Path) \
             else pathlib.Path(path)
 
-        max_reader_num_queue = max_reader_num if max_reader_num is not None \
-            else persipubsub.bytes_to_int(
-            persipubsub.get_queue_data(
-                path=self.path, key=persipubsub.MAX_READER_NUM_KEY))
-        max_db_num_queue = max_db_num if max_db_num is not None else \
-            persipubsub.bytes_to_int(
-            persipubsub.get_queue_data(
-                path=self.path, key=persipubsub.MAX_DB_NUM_KEY))
-        max_db_size_bytes_queue = max_db_size_bytes if max_db_size_bytes \
-                                                       is not None else \
-            persipubsub.bytes_to_int(
-            persipubsub.get_queue_data(
-                path=self.path, key=persipubsub.MAX_DB_SIZE_BYTES_KEY))
+        # max_reader_num_queue = max_reader_num if max_reader_num is not None \
+        #     else persipubsub.bytes_to_int(
+        #     persipubsub.get_queue_data(
+        #         path=self.path, key=persipubsub.MAX_READER_NUM_KEY))
+        # max_db_num_queue = max_db_num if max_db_num is not None else \
+        #     persipubsub.bytes_to_int(
+        #     persipubsub.get_queue_data(
+        #         path=self.path, key=persipubsub.MAX_DB_NUM_KEY))
+        # max_db_size_bytes_queue = max_db_size_bytes if max_db_size_bytes \
+        #                                                is not None else \
+        #     persipubsub.bytes_to_int(
+        #     persipubsub.get_queue_data(
+        #         path=self.path, key=persipubsub.MAX_DB_SIZE_BYTES_KEY))
+
+        # TODO(snaji): remove
+        max_reader_num_queue = persipubsub.MAX_READER_NUM
+        max_db_num_queue = persipubsub.MAX_DB_NUM
+        max_db_size_bytes_queue = persipubsub.MAX_DB_SIZE_BYTES
 
         self.env = _initialize_environment(
             queue_dir=self.path,
@@ -220,29 +225,39 @@ class _Queue:
             _ = self.env.open_db(
                 key=persipubsub.PENDING_DB, txn=txn, create=True)
             _ = self.env.open_db(key=persipubsub.META_DB, txn=txn, create=True)
+            _ = self.env.open_db(key=persipubsub.QUEUE_DB, txn=txn, create=True)
 
         msg_timeout_secs = persipubsub.bytes_to_int(
             persipubsub.get_queue_data(
-                path=self.path, key=persipubsub.MSG_TIMEOUT_SECS_KEY))
+                key=persipubsub.MSG_TIMEOUT_SECS_KEY, env=self.env))
         max_msgs_num = persipubsub.bytes_to_int(
             persipubsub.get_queue_data(
-                path=self.path, key=persipubsub.MAX_MSGS_NUM_KEY))
+                key=persipubsub.MAX_MSGS_NUM_KEY, env=self.env))
         hwm_lmdb_size_bytes = persipubsub.bytes_to_int(
             persipubsub.get_queue_data(
-                path=self.path, key=persipubsub.HWM_DB_SIZE_BYTES_KEY))
+                key=persipubsub.HWM_DB_SIZE_BYTES_KEY, env=self.env))
+
+        # TODO(snaji): remove
+        # msg_timeout_secs = 500
+        # max_msgs_num = 10000000000000
+        # hwm_lmdb_size_bytes = 30 * 1024**3
         self.hwm = HighWaterMark(
             msg_timeout_secs=msg_timeout_secs,
             max_msgs_num=max_msgs_num,
             hwm_lmdb_size_bytes=hwm_lmdb_size_bytes)
 
         strategy = persipubsub.get_queue_data(
-            path=self.path, key=persipubsub.STRATEGY_KEY)
+            key=persipubsub.STRATEGY_KEY, env=self.env)
+
+        # TODO(snaji): remove
+        # strategy = "prune_first".encode('utf-8')
         self.strategy = _parse_strategy(
             persipubsub.decoding(encoded_str=strategy))
 
         subscriber_list = persipubsub.get_queue_data(
-            path=self.path, key=persipubsub.SUBSCRIBER_IDS_KEY)
-
+            key=persipubsub.SUBSCRIBER_IDS_KEY, env=self.env)
+        # TODO(snaji): remove
+        # self.subscriber_ids = ['sub']
         if subscriber_list is None:
             self.subscriber_ids = []
         else:
@@ -253,7 +268,7 @@ class _Queue:
         """Enter the context and give the queue prepared in the constructor."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Leave the context."""
 
     def put(self, msg: bytes) -> None:
@@ -265,7 +280,7 @@ class _Queue:
         :return:
         """
         # every publisher always prunes queue before sending a message.
-        self.vacuum()
+        # self.vacuum()
         msg_id = str(datetime.datetime.utcnow().timestamp()) + str(uuid.uuid4())
         assert isinstance(self.env, lmdb.Environment)
         assert isinstance(self.subscriber_ids, List)
@@ -367,7 +382,7 @@ class _Queue:
             else:
                 msg = None
 
-        return msg
+        return msg  # type: ignore
 
     def pop(self, identifier: str) -> None:
         """
@@ -442,9 +457,9 @@ class _Queue:
         with self.env.begin(write=False) as txn:
             meta_db = self.env.open_db(
                 key=persipubsub.META_DB, txn=txn, create=False)
-            meta_stat = txn.stat(db=meta_db)
+            meta_stat = txn.stat(db=meta_db)  # type: Dict[str, int]
 
-            return meta_stat['entries']
+        return meta_stat['entries']
 
     def vacuum(self) -> None:
         """

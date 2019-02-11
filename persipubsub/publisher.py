@@ -2,7 +2,7 @@
 """Distribute messages persistent from publisher to subscriber."""
 
 import pathlib
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 import persipubsub.queue
 
@@ -40,7 +40,7 @@ class Publisher:
         """Enter the context and give the pub prepared in the constructor."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Leave the context."""
 
     def send(self, msg: bytes) -> None:

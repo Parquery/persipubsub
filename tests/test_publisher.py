@@ -5,6 +5,7 @@ import pathlib
 import unittest
 from typing import List
 
+import lmdb
 import temppathlib
 
 import persipubsub.control
@@ -35,7 +36,7 @@ def setup(path: pathlib.Path,
 
 
 class TestPublisher(unittest.TestCase):
-    def test_send(self):
+    def test_send(self) -> None:
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
             _ = setup(path=tmp_dir.path, sub_list=['sub'])
@@ -50,6 +51,8 @@ class TestPublisher(unittest.TestCase):
             pub.send(msg=msg)
 
             subscriber = "sub".encode(tests.ENCODING)
+
+            assert isinstance(queue.env, lmdb.Environment)
             with queue.env.begin(write=False) as txn:
                 self.assertIsNotNone(txn.get(key=subscriber))
                 sub_db = queue.env.open_db(
@@ -65,7 +68,7 @@ class TestPublisher(unittest.TestCase):
                 self.assertIsNotNone(item)
                 self.assertEqual(msg, item)
 
-    def test_send_many(self):
+    def test_send_many(self) -> None:
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
             subscriber = "sub"
@@ -82,6 +85,8 @@ class TestPublisher(unittest.TestCase):
 
             pub.send_many(msgs=msgs)
 
+            assert isinstance(pub.queue, persipubsub.queue._Queue)
+            assert isinstance(pub.queue.env, lmdb.Environment)
             with pub.queue.env.begin(write=False) as txn:
                 self.assertIsNotNone(
                     txn.get(key=subscriber.encode(tests.ENCODING)))

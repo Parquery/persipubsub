@@ -6,6 +6,7 @@ import pathlib
 import unittest
 from typing import List
 
+import lmdb
 import temppathlib
 
 import persipubsub.control
@@ -35,7 +36,7 @@ def setup(path: pathlib.Path,
 
 
 class TestControl(unittest.TestCase):
-    def test_initialize_all(self):
+    def test_initialize_all(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             control = setup(path=tmp_dir.path, sub_list=['sub'])
 
@@ -44,6 +45,8 @@ class TestControl(unittest.TestCase):
             ]
             db_keys = []  # type: List[bytes]
 
+            assert isinstance(control.queue, persipubsub.queue._Queue)
+            assert isinstance(control.queue.env, lmdb.Environment)
             with control.queue.env.begin() as txn:
                 cursor = txn.cursor()
                 cursor.first()
@@ -52,9 +55,12 @@ class TestControl(unittest.TestCase):
 
             self.assertListEqual(sorted(expected_db_keys), sorted(db_keys))
 
-    def test_del_sub(self):
+    def test_del_sub(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             control = setup(path=tmp_dir.path, sub_list=["sub1", "sub2"])
+
+            assert isinstance(control.queue, persipubsub.queue._Queue)
+            assert isinstance(control.queue.env, lmdb.Environment)
 
             control._remove_sub(sub_id="sub2", env=control.queue.env)
 
@@ -71,7 +77,7 @@ class TestControl(unittest.TestCase):
 
             self.assertListEqual(sorted(expected_db_keys), sorted(db_keys))
 
-    def test_clear_all_subs(self):
+    def test_clear_all_subs(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             control = setup(path=tmp_dir.path, sub_list=["sub1", "sub2"])
 
@@ -82,6 +88,8 @@ class TestControl(unittest.TestCase):
             ]
             db_keys = []  # type: List[bytes]
 
+            assert isinstance(control.queue, persipubsub.queue._Queue)
+            assert isinstance(control.queue.env, lmdb.Environment)
             with control.queue.env.begin() as txn:
                 cursor = txn.cursor()
                 cursor.first()
@@ -90,11 +98,15 @@ class TestControl(unittest.TestCase):
 
             self.assertListEqual(sorted(expected_db_keys), sorted(db_keys))
 
-    def test_prune_dangling_messages(self):
+    def test_prune_dangling_messages(self) -> None:
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
             control = setup(path=tmp_dir.path, sub_list=["sub"])
 
+            assert isinstance(control.queue, persipubsub.queue._Queue)
+            assert isinstance(control.queue.env, lmdb.Environment)
+            assert isinstance(control.queue.hwm,
+                              persipubsub.queue.HighWaterMark)
             control.queue.hwm.msg_timeout_secs = tests.TEST_MSG_TIMEOUT
 
             with control.queue.env.begin(write=True) as txn:
@@ -179,12 +191,13 @@ class TestControl(unittest.TestCase):
 
             self.assertEqual(expected_remaining_entries, remaining_entries)
 
-    def test_prune_all_messages_for_subscriber(self):
+    def test_prune_all_messages_for_subscriber(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             control = setup(path=tmp_dir.path, sub_list=["sub"])
 
             msg = persipubsub.encoding("hello world!")
-
+            assert isinstance(control.queue, persipubsub.queue._Queue)
+            assert isinstance(control.queue.env, lmdb.Environment)
             control.queue.put(msg=msg)
             control.queue.put(msg=msg)
 
@@ -202,13 +215,13 @@ class TestControl(unittest.TestCase):
                 sub_stat = txn.stat(db=sub_db)
                 self.assertEqual(0, sub_stat['entries'])
 
-    def test_is_initialized(self):
+    def test_is_initialized(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             control = setup(path=tmp_dir.path, sub_list=["sub"])
 
             self.assertTrue(control.check_queue_is_initialized())
 
-    def test_is_not_initialized(self):
+    def test_is_not_initialized(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             control = persipubsub.control.Control(path=tmp_dir.path)
             self.assertFalse(control.check_queue_is_initialized())

@@ -35,7 +35,7 @@ def setup(path: pathlib.Path,
 
 
 class TestSubscriber(unittest.TestCase):
-    def test_receive_message(self):
+    def test_receive_message(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             _ = setup(path=tmp_dir.path, sub_list=['sub'])
 
@@ -52,7 +52,7 @@ class TestSubscriber(unittest.TestCase):
                 self.assertIsNotNone(received_msg)
                 self.assertEqual(msg, received_msg)
 
-    def test_timeout_subscriber(self):
+    def test_timeout_subscriber(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             _ = setup(path=tmp_dir.path, sub_list=['sub'])
 
@@ -81,7 +81,7 @@ class TestSubscriber(unittest.TestCase):
 
             self.assertIsNone(queue.front(identifier='sub'))
 
-    def test_pop(self):
+    def test_pop(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             _ = setup(path=tmp_dir.path, sub_list=['sub'])
 
@@ -103,7 +103,7 @@ class TestSubscriber(unittest.TestCase):
                 self.assertIsNotNone(msg)
                 self.assertEqual(msg2, msg)
 
-    def test_pop_when_empty(self):
+    def test_pop_when_empty(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             _ = setup(path=tmp_dir.path, sub_list=['sub'])
 
@@ -115,7 +115,7 @@ class TestSubscriber(unittest.TestCase):
 
             self.assertRaises(RuntimeError, sub._pop)
 
-    def test_receive_to_top(self):
+    def test_receive_to_top(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             _ = setup(path=tmp_dir.path, sub_list=['sub'])
 
