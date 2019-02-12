@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Distribute messages persistent from publisher to subscriber."""
 import pathlib
+from typing import Optional
 
 import lmdb
 
@@ -71,7 +72,7 @@ def bytes_to_int(array_of_bytes: bytes) -> int:
     return int.from_bytes(bytes=array_of_bytes, byteorder=BYTES_ORDER)
 
 
-def get_queue_data(key: bytes, env: lmdb.Environment) -> bytes:
+def get_queue_data(key: bytes, env: lmdb.Environment) -> Optional[bytes]:
     """
     Get queue data.
 
@@ -83,5 +84,4 @@ def get_queue_data(key: bytes, env: lmdb.Environment) -> bytes:
         queue_db = env.open_db(key=QUEUE_DB, txn=txn, create=False)
         data = txn.get(key=key, db=queue_db)
 
-    assert isinstance(data, bytes)
-    return data
+    return data  # type: ignore

@@ -12,38 +12,13 @@ import persipubsub.queue
 # pylint: disable=protected-access
 
 
-def set_queue_parameters(max_reader_num: int, max_db_num: int,
-                         max_db_size_bytes: int, env: lmdb.Environment) -> None:
-    """
-    Store queue parameter in lmdb.
-
-    :param max_reader_num:  max number of reader of the lmdb
-    :param max_db_num: max number of named databases
-    :param max_db_size_bytes: max size of the lmdb in bytes
-    :return:
-    """
-    with env.begin(write=True) as txn:
-        queue_db = env.open_db(persipubsub.QUEUE_DB, txn=txn, create=True)
-        txn.put(
-            key=persipubsub.MAX_READER_NUM_KEY,
-            value=persipubsub.int_to_bytes(max_reader_num),
-            db=queue_db)
-        txn.put(
-            key=persipubsub.MAX_DB_NUM_KEY,
-            value=persipubsub.int_to_bytes(max_db_num),
-            db=queue_db)
-        txn.put(
-            key=persipubsub.MAX_DB_SIZE_BYTES_KEY,
-            value=persipubsub.int_to_bytes(max_db_size_bytes),
-            db=queue_db)
-
-
 def set_hwm(hwm: persipubsub.queue.HighWaterMark,
             env: lmdb.Environment) -> None:
     """
     Set high water mark values for queue.
 
     :param hwm: high water mark values
+    :param env: queue environment
     :return:
     """
     with env.begin(write=True) as txn:
@@ -68,6 +43,7 @@ def set_strategy(strategy: persipubsub.queue.Strategy,
     Set pruning strategy for queue.
 
     :param strategy: pruning strategy
+    :param env: queue environment
     :return:
     """
     with env.begin(write=True) as txn:
@@ -84,6 +60,7 @@ def _add_sub(sub_id: str, env: lmdb.Environment) -> None:
     Add a subscriber and create its lmdb.
 
     :param sub_id: ID of the subscriber which should be added
+    :param env: queue environment
     """
     with env.begin(write=True) as txn:
         _ = env.open_db(key=persipubsub.encoding(sub_id), txn=txn, create=True)
@@ -109,22 +86,32 @@ def _add_sub(sub_id: str, env: lmdb.Environment) -> None:
 class Control:
     """Control and maintain one queue."""
 
-    def __init__(self, path: pathlib.Path):
+    def __init__(self,
+                 path: pathlib.Path,
+                 env: Optional[lmdb.Environment] = None):
         """
         Initialize control class.
 
         :param path: to the queue.
         """
         self.path = path
+        if not self.path.exists():
+            self.path.mkdir(parents=True, exist_ok=True)
         self.queue = None  # type: Optional[persipubsub.queue._Queue]
         self.subscriber_ids = set()  # type: Set[str]
-        self.env = None  # type: Optional[lmdb.Environment]
+
+        if isinstance(env, lmdb.Environment):
+            self.env = env
+        else:
+            self.env = persipubsub.queue._initialize_environment(
+                queue_dir=self.path,
+                max_reader_num=persipubsub.MAX_READER_NUM,
+                max_db_num=persipubsub.MAX_DB_NUM,
+                max_db_size_bytes=persipubsub.MAX_DB_SIZE_BYTES)
 
     # pylint: disable=too-many-arguments
     def init(self,
              subscriber_ids: Optional[Sequence[str]] = None,
-             max_readers: int = 1024,
-             max_size: int = 32 * 1024**3,
              high_watermark: persipubsub.queue.HighWaterMark = persipubsub.
              queue.HighWaterMark(),
              strategy: persipubsub.queue.Strategy = persipubsub.queue.Strategy.
@@ -133,8 +120,6 @@ class Control:
         Initialize control with a (re)initialized queue.
 
         :param subscriber_ids: subscribers of the queue
-        :param max_readers: max number of reader of the lmdb
-        :param max_size: max size of the lmdb in bytes
         :param high_watermark: high water mark limit of the queue
         :param strategy: used to prune queue
         :return:
@@ -147,29 +132,19 @@ class Control:
             assert isinstance(subscriber_ids, Sequence)
             self._initialize_queue(
                 subscriber_ids=subscriber_ids,
-                max_readers=max_readers,
-                max_size=max_size,
                 high_watermark=high_watermark,
                 strategy=strategy)
 
     def _reinitialize_queue(self) -> None:
         """Reinitialize the queue which is maintained by the control."""
-        self.queue = persipubsub.queue._Queue()
-        self.queue.init(path=self.path)
+        self.queue = persipubsub.queue._Queue(
+        )  # type: persipubsub.queue._Queue
+        self.queue.init(path=self.path, env=self.env)
         assert isinstance(self.queue.subscriber_ids, List)
         self.subscriber_ids = set(self.queue.subscriber_ids)
 
-    # pylint: disable=too-many-arguments
-    @icontract.require(lambda max_readers: max_readers >= 0)
-    # Each named database needs at least one page of 4096 bytes.
-    # yapf: disable
-    @icontract.require(lambda max_size, subscriber_ids: max_size >= (
-            5 + len(subscriber_ids) * 4096))
-    # yapf: enable
     def _initialize_queue(self,
                           subscriber_ids: Sequence[str],
-                          max_readers: int = 1024,
-                          max_size: int = 32 * 1024**3,
                           high_watermark: persipubsub.queue.
                           HighWaterMark = persipubsub.queue.HighWaterMark(),
                           strategy: persipubsub.queue.Strategy = persipubsub.
@@ -178,43 +153,25 @@ class Control:
         Initialize queue.
 
         :param subscriber_ids: subscribers of the queue
-        :param max_readers: max number of reader of the lmdb
-        :param max_size: max size of the lmdb in bytes
         :param high_watermark: high water mark limit of the queue
         :param strategy: used to prune queue
         :return:
         """
-        if not self.path.exists():
-            self.path.mkdir(parents=True, exist_ok=True)
-
         self.subscriber_ids = set(subscriber_ids)
         # Databases needed for queue:
-        # 5 queues (main db, data db, meta db, pending db, queue db)
+        # 4 queues (data db, meta db, pending db, queue db)
         # + each subscriber has its own db
-        max_db_num = 5 + len(self.subscriber_ids)
 
-        env = persipubsub.queue._initialize_environment(
-            queue_dir=self.path,
-            max_db_num=max_db_num,
-            max_reader_num=max_readers,
-            max_db_size_bytes=max_size)
-
-        set_queue_parameters(
-            max_reader_num=max_readers,
-            max_db_num=max_db_num,
-            max_db_size_bytes=max_size,
-            env=env)
-
-        self.env = env
-        set_hwm(hwm=high_watermark, env=env)
-        set_strategy(strategy=strategy, env=env)
+        set_hwm(hwm=high_watermark, env=self.env)
+        set_strategy(strategy=strategy, env=self.env)
 
         for sub in self.subscriber_ids:
-            _add_sub(sub_id=sub, env=env)
+            _add_sub(sub_id=sub, env=self.env)
 
         # load initialized queue
-        self.queue = persipubsub.queue._Queue()
-        self.queue.init(path=self.path)
+        self.queue = persipubsub.queue._Queue(
+        )  # type: persipubsub.queue._Queue
+        self.queue.init(path=self.path, env=self.env)
 
     def check_queue_is_initialized(self) -> bool:
         """
@@ -223,10 +180,9 @@ class Control:
         :return: is initialized when all values for the given keys are set
         """
         keys = [
-            persipubsub.MAX_DB_SIZE_BYTES_KEY, persipubsub.MAX_DB_NUM_KEY,
             persipubsub.MSG_TIMEOUT_SECS_KEY, persipubsub.MAX_MSGS_NUM_KEY,
             persipubsub.HWM_DB_SIZE_BYTES_KEY, persipubsub.STRATEGY_KEY,
-            persipubsub.SUBSCRIBER_IDS_KEY, persipubsub.MAX_READER_NUM_KEY
+            persipubsub.SUBSCRIBER_IDS_KEY
         ]  # type: List[bytes]
 
         for key in keys:

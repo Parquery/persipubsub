@@ -22,6 +22,11 @@ class Environment:
         :param path: to the queue
         """
         self.path = path
+        self.env = persipubsub.queue._initialize_environment(
+            queue_dir=self.path,
+            max_reader_num=persipubsub.MAX_READER_NUM,
+            max_db_num=persipubsub.MAX_DB_NUM,
+            max_db_size_bytes=persipubsub.MAX_DB_SIZE_BYTES)
 
     def __enter__(self) -> 'Environment':
         """Enter the context and give environment prepared to constructor."""
@@ -33,8 +38,6 @@ class Environment:
     # pylint: disable=too-many-arguments
     def new_control(self,
                     subscriber_ids: Optional[Sequence[str]] = None,
-                    max_readers: int = 1024,
-                    max_size: int = 32 * 1024**3,
                     high_watermark: persipubsub.queue.
                     HighWaterMark = persipubsub.queue.HighWaterMark(),
                     strategy: persipubsub.queue.Strategy = persipubsub.queue.
@@ -49,11 +52,9 @@ class Environment:
         :param strategy: used to prune queue
         :return: Control to create and maintain queue
         """
-        control = persipubsub.control.Control(path=self.path)
+        control = persipubsub.control.Control(path=self.path, env=self.env)
         control.init(
             subscriber_ids=subscriber_ids,
-            max_readers=max_readers,
-            max_size=max_size,
             high_watermark=high_watermark,
             strategy=strategy)
         return control
@@ -67,7 +68,7 @@ class Environment:
         :return: Publisher to send messages
         """
         publisher = persipubsub.publisher.Publisher()
-        publisher.init(path=self.path, autosync=autosync)
+        publisher.init(path=self.path, autosync=autosync, env=self.env)
         return publisher
 
     def new_subscriber(self,
@@ -79,7 +80,7 @@ class Environment:
         :return: Subscriber to receive messages
         """
         subscriber = persipubsub.subscriber.Subscriber()
-        subscriber.init(identifier=identifier, path=self.path)
+        subscriber.init(identifier=identifier, path=self.path, env=self.env)
         return subscriber
 
 

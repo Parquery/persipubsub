@@ -25,12 +25,7 @@ def setup(path: pathlib.Path,
     hwm = persipubsub.queue.HighWaterMark()
     strategy = persipubsub.queue.Strategy.prune_first
 
-    control.init(
-        subscriber_ids=sub_list,
-        max_readers=tests.TEST_MAX_READER_NUM,
-        max_size=tests.TEST_MAX_DB_SIZE_BYTES,
-        high_watermark=hwm,
-        strategy=strategy)
+    control.init(subscriber_ids=sub_list, high_watermark=hwm, strategy=strategy)
 
     return control
 

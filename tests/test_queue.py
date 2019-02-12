@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Test database."""
 
-import pathlib
 import time
 import unittest
 from typing import List
@@ -10,6 +9,7 @@ import lmdb
 import temppathlib
 
 import persipubsub.control
+import persipubsub.environment
 import persipubsub.queue
 import tests
 
@@ -17,23 +17,14 @@ import tests
 # pylint: disable=protected-access
 
 
-def setup(path: pathlib.Path,
+def setup(env: persipubsub.environment.Environment,
           sub_list: List[str]) -> persipubsub.control.Control:
     """Create an initialized control"""
-    control = persipubsub.control.Control(path=path)
-
-    hwm = persipubsub.queue.HighWaterMark(
-        msg_timeout_secs=tests.TEST_MSG_TIMEOUT,
-        max_msgs_num=tests.TEST_HWM_MSG_NUM,
-        hwm_lmdb_size_bytes=tests.TEST_HWM_LMDB_SIZE)
+    hwm = persipubsub.queue.HighWaterMark()
     strategy = persipubsub.queue.Strategy.prune_first
 
-    control.init(
-        subscriber_ids=sub_list,
-        max_readers=tests.TEST_MAX_READER_NUM,
-        max_size=tests.TEST_MAX_DB_SIZE_BYTES,
-        high_watermark=hwm,
-        strategy=strategy)
+    control = env.new_control(
+        subscriber_ids=sub_list, high_watermark=hwm, strategy=strategy)
 
     return control
 
@@ -65,12 +56,13 @@ class TestQueue(unittest.TestCase):
         with temppathlib.TemporaryDirectory() as tmp_dir:
             msg = "I'm a message.".encode(tests.ENCODING)
 
-            subscriber = "sub"
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            _ = setup(path=tmp_dir.path, sub_list=['sub'])
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
             queue.put(msg=msg)
 
             assert isinstance(queue.env, lmdb.Environment)
@@ -100,11 +92,11 @@ class TestQueue(unittest.TestCase):
 
             sub_list = ["sub", "another_sub"]
 
-            _ = setup(path=tmp_dir.path, sub_list=sub_list)
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
+            _ = setup(env=env, sub_list=sub_list)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
-
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
             queue.put(msg=msg)
 
             assert isinstance(queue.env, lmdb.Environment)
@@ -143,11 +135,13 @@ class TestQueue(unittest.TestCase):
     def test_put_many(self) -> None:
         # pylint: disable=too-many-locals
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            subscriber = "sub"
-            _ = setup(path=tmp_dir.path, sub_list=[subscriber])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
+
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
 
             msg = "I'm a message".encode(tests.ENCODING)
             msgs = []
@@ -180,11 +174,13 @@ class TestQueue(unittest.TestCase):
         with temppathlib.TemporaryDirectory() as tmp_dir:
             msg = "I'm a message.".encode(tests.ENCODING)
 
-            subscriber = "sub"
-            _ = setup(path=tmp_dir.path, sub_list=[subscriber])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
+
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
             queue.put(msg=msg)
 
             # pylint: disable=assignment-from-none
@@ -197,11 +193,13 @@ class TestQueue(unittest.TestCase):
         with temppathlib.TemporaryDirectory() as tmp_dir:
             msg = "I'm a message.".encode(tests.ENCODING)
 
-            subscriber = "sub"
-            _ = setup(path=tmp_dir.path, sub_list=[subscriber])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
+
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
             queue.put(msg=msg)
 
             # pylint: disable=assignment-from-none
@@ -237,20 +235,33 @@ class TestQueue(unittest.TestCase):
     def test_pop_queue_empty(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
 
-            subscriber = "sub"
-            _ = setup(path=tmp_dir.path, sub_list=[subscriber])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
+
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
 
             self.assertRaises(RuntimeError, queue.pop, identifier=subscriber)
 
     def test_queue_initialisation(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            _ = setup(path=tmp_dir.path, sub_list=['sub'])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
+
+            hwm = persipubsub.queue.HighWaterMark(
+                msg_timeout_secs=tests.TEST_MSG_TIMEOUT,
+                max_msgs_num=tests.TEST_HWM_MSG_NUM,
+                hwm_lmdb_size_bytes=tests.TEST_HWM_LMDB_SIZE)
+
+            persipubsub.control.set_hwm(hwm=hwm, env=env.env)
+            persipubsub.control.set_strategy(
+                strategy=persipubsub.queue.Strategy.prune_first, env=env.env)
+            queue = env.new_control().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
 
             self.assertIsNotNone(queue.env)
             assert isinstance(queue.env, lmdb.Environment)
@@ -267,10 +278,13 @@ class TestQueue(unittest.TestCase):
 
     def test_overflow_msgs_limit(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            _ = setup(path=tmp_dir.path, sub_list=['sub'])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
+
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
 
             assert isinstance(queue.hwm, persipubsub.queue.HighWaterMark)
             queue.hwm.max_msgs_num = tests.TEST_HWM_MSG_NUM
@@ -291,10 +305,13 @@ class TestQueue(unittest.TestCase):
 
     def test_overflow_limit_size(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            _ = setup(path=tmp_dir.path, sub_list=['sub'])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
+
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
 
             assert isinstance(queue.hwm, persipubsub.queue.HighWaterMark)
             queue.hwm.hwm_lmdb_size_bytes = tests.TEST_HWM_LMDB_SIZE
@@ -314,10 +331,13 @@ class TestQueue(unittest.TestCase):
 
     def test_timeout(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            _ = setup(path=tmp_dir.path, sub_list=['sub'])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
+
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
 
             assert isinstance(queue.hwm, persipubsub.queue.HighWaterMark)
             queue.hwm.msg_timeout_secs = tests.TEST_MSG_TIMEOUT
@@ -334,10 +354,13 @@ class TestQueue(unittest.TestCase):
 
     def test_strategy_prune_first(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            _ = setup(path=tmp_dir.path, sub_list=['sub'])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
+
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
             queue.strategy = persipubsub.queue.Strategy.prune_first
 
             assert isinstance(queue.hwm, persipubsub.queue.HighWaterMark)
@@ -361,10 +384,13 @@ class TestQueue(unittest.TestCase):
 
     def test_strategy_prune_last(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            _ = setup(path=tmp_dir.path, sub_list=['sub'])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
+
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
             queue.strategy = persipubsub.queue.Strategy.prune_last
 
             assert isinstance(queue.hwm, persipubsub.queue.HighWaterMark)

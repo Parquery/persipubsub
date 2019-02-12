@@ -85,6 +85,9 @@ def _initialize_environment(
     # Setting max_spare_txn equals 0 doesn't allow any caching for read-only
     # transactions to avoid the error:
     # MDB_BAD_RSLOT: Invalid reuse of reader locktable slot.
+    # Error only occures when one publisher/subscriber is used in multiple
+    # processes. So max_spare_txn equal 1 is fine as we expect a publisher and
+    # subscriber running on the same process.
     env = lmdb.open(
         path=queue_dir.as_posix(),
         map_size=max_db_size_bytes,
@@ -181,9 +184,7 @@ class _Queue:
     # pylint: disable=too-many-locals
     def init(self,
              path: Union[pathlib.Path, str],
-             max_reader_num: Optional[int] = None,
-             max_db_num: Optional[int] = None,
-             max_db_size_bytes: Optional[int] = None) -> None:
+             env: Optional[lmdb.Environment] = None) -> None:
         """
         Initialize the queue.
 
@@ -195,30 +196,14 @@ class _Queue:
         self.path = path if isinstance(path, pathlib.Path) \
             else pathlib.Path(path)
 
-        # max_reader_num_queue = max_reader_num if max_reader_num is not None \
-        #     else persipubsub.bytes_to_int(
-        #     persipubsub.get_queue_data(
-        #         path=self.path, key=persipubsub.MAX_READER_NUM_KEY))
-        # max_db_num_queue = max_db_num if max_db_num is not None else \
-        #     persipubsub.bytes_to_int(
-        #     persipubsub.get_queue_data(
-        #         path=self.path, key=persipubsub.MAX_DB_NUM_KEY))
-        # max_db_size_bytes_queue = max_db_size_bytes if max_db_size_bytes \
-        #                                                is not None else \
-        #     persipubsub.bytes_to_int(
-        #     persipubsub.get_queue_data(
-        #         path=self.path, key=persipubsub.MAX_DB_SIZE_BYTES_KEY))
-
-        # TODO(snaji): remove
-        max_reader_num_queue = persipubsub.MAX_READER_NUM
-        max_db_num_queue = persipubsub.MAX_DB_NUM
-        max_db_size_bytes_queue = persipubsub.MAX_DB_SIZE_BYTES
-
-        self.env = _initialize_environment(
-            queue_dir=self.path,
-            max_reader_num=max_reader_num_queue,
-            max_db_num=max_db_num_queue,
-            max_db_size_bytes=max_db_size_bytes_queue)
+        if isinstance(env, lmdb.Environment):
+            self.env = env
+        else:
+            self.env = _initialize_environment(
+                queue_dir=self.path,
+                max_reader_num=persipubsub.MAX_READER_NUM,
+                max_db_num=persipubsub.MAX_DB_NUM,
+                max_db_size_bytes=persipubsub.MAX_DB_SIZE_BYTES)
 
         with self.env.begin(write=True) as txn:
             _ = self.env.open_db(key=persipubsub.DATA_DB, txn=txn, create=True)
@@ -227,37 +212,40 @@ class _Queue:
             _ = self.env.open_db(key=persipubsub.META_DB, txn=txn, create=True)
             _ = self.env.open_db(key=persipubsub.QUEUE_DB, txn=txn, create=True)
 
-        msg_timeout_secs = persipubsub.bytes_to_int(
-            persipubsub.get_queue_data(
-                key=persipubsub.MSG_TIMEOUT_SECS_KEY, env=self.env))
-        max_msgs_num = persipubsub.bytes_to_int(
-            persipubsub.get_queue_data(
-                key=persipubsub.MAX_MSGS_NUM_KEY, env=self.env))
-        hwm_lmdb_size_bytes = persipubsub.bytes_to_int(
-            persipubsub.get_queue_data(
-                key=persipubsub.HWM_DB_SIZE_BYTES_KEY, env=self.env))
+        msg_timeout_secs_bytes = persipubsub.get_queue_data(
+            key=persipubsub.MSG_TIMEOUT_SECS_KEY, env=self.env)
+        msg_timeout_secs = msg_timeout_secs_bytes \
+            if msg_timeout_secs_bytes is None else persipubsub.bytes_to_int(
+            msg_timeout_secs_bytes)  # type: Optional[int]
 
-        # TODO(snaji): remove
-        # msg_timeout_secs = 500
-        # max_msgs_num = 10000000000000
-        # hwm_lmdb_size_bytes = 30 * 1024**3
+        max_msgs_num_bytes = persipubsub.get_queue_data(
+            key=persipubsub.MAX_MSGS_NUM_KEY, env=self.env)
+        max_msgs_num = max_msgs_num_bytes \
+            if max_msgs_num_bytes is None else persipubsub.bytes_to_int(
+            max_msgs_num_bytes)  # type: Optional[int]
+
+        hwm_lmdb_size_bytes = persipubsub.get_queue_data(
+            key=persipubsub.HWM_DB_SIZE_BYTES_KEY, env=self.env)
+        hwm_lmdb_size = hwm_lmdb_size_bytes \
+            if hwm_lmdb_size_bytes is None else persipubsub.bytes_to_int(
+            hwm_lmdb_size_bytes)  # type: Optional[int]
+
         self.hwm = HighWaterMark(
             msg_timeout_secs=msg_timeout_secs,
             max_msgs_num=max_msgs_num,
-            hwm_lmdb_size_bytes=hwm_lmdb_size_bytes)
+            hwm_lmdb_size_bytes=hwm_lmdb_size)
 
         strategy = persipubsub.get_queue_data(
             key=persipubsub.STRATEGY_KEY, env=self.env)
 
-        # TODO(snaji): remove
-        # strategy = "prune_first".encode('utf-8')
-        self.strategy = _parse_strategy(
-            persipubsub.decoding(encoded_str=strategy))
+        strategy_decoded = "" if strategy is None else persipubsub.decoding(
+            encoded_str=strategy)
+
+        self.strategy = _parse_strategy(strategy=strategy_decoded)
 
         subscriber_list = persipubsub.get_queue_data(
             key=persipubsub.SUBSCRIBER_IDS_KEY, env=self.env)
-        # TODO(snaji): remove
-        # self.subscriber_ids = ['sub']
+
         if subscriber_list is None:
             self.subscriber_ids = []
         else:
@@ -280,7 +268,7 @@ class _Queue:
         :return:
         """
         # every publisher always prunes queue before sending a message.
-        # self.vacuum()
+        self.vacuum()
         msg_id = str(datetime.datetime.utcnow().timestamp()) + str(uuid.uuid4())
         assert isinstance(self.env, lmdb.Environment)
         assert isinstance(self.subscriber_ids, List)

@@ -30,7 +30,10 @@ class Subscriber:
         self.identifier = None  # type: Optional[str]
         self.queue = None  # type: Optional[persipubsub.queue._Queue]
 
-    def init(self, identifier: str, path: Union[pathlib.Path, str]) -> None:
+    def init(self,
+             identifier: str,
+             path: Union[pathlib.Path, str],
+             env: Optional[lmdb.Environment] = None) -> None:
         """
         Initialize.
 
@@ -40,7 +43,7 @@ class Subscriber:
         self.identifier = identifier
         assert isinstance(self.identifier, str)
         self.queue = persipubsub.queue._Queue()  # pylint: disable=protected-access
-        self.queue.init(path=path)
+        self.queue.init(path=path, env=env)
         assert isinstance(self.queue, persipubsub.queue._Queue)
 
     def __enter__(self) -> 'Subscriber':

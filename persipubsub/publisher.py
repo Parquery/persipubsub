@@ -4,6 +4,8 @@
 import pathlib
 from typing import Any, List, Optional, Union
 
+import lmdb
+
 import persipubsub.queue
 
 # pylint: disable=protected-access
@@ -24,7 +26,9 @@ class Publisher:
         self.queue = None  # type: Optional[persipubsub.queue._Queue]
         self.autosync = None  # type: Optional[bool]
 
-    def init(self, path: Union[pathlib.Path, str],
+    def init(self,
+             path: Union[pathlib.Path, str],
+             env: Optional[lmdb.Environment] = None,
              autosync: bool = False) -> None:
         """
         Initialize.
@@ -33,7 +37,7 @@ class Publisher:
         :param autosync: if True, store data automatically in lmdb
         """
         self.queue = persipubsub.queue._Queue()  # pylint: disable=protected-access
-        self.queue.init(path=path)
+        self.queue.init(path=path, env=env)
         self.autosync = autosync
 
     def __enter__(self) -> 'Publisher':

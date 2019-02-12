@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 """Test subscriber."""
 
-import pathlib
 import unittest
 from typing import List
 
 import temppathlib
 
 import persipubsub.control
+import persipubsub.environment
 import persipubsub.queue
 import persipubsub.subscriber
 import tests
@@ -16,20 +16,14 @@ import tests
 # pylint: disable=protected-access
 
 
-def setup(path: pathlib.Path,
+def setup(env: persipubsub.environment.Environment,
           sub_list: List[str]) -> persipubsub.control.Control:
     """Create an initialized control"""
-    control = persipubsub.control.Control(path=path)
-
     hwm = persipubsub.queue.HighWaterMark()
     strategy = persipubsub.queue.Strategy.prune_first
 
-    control.init(
-        subscriber_ids=sub_list,
-        max_readers=tests.TEST_MAX_READER_NUM,
-        max_size=tests.TEST_MAX_DB_SIZE_BYTES,
-        high_watermark=hwm,
-        strategy=strategy)
+    control = env.new_control(
+        subscriber_ids=sub_list, high_watermark=hwm, strategy=strategy)
 
     return control
 
@@ -37,13 +31,14 @@ def setup(path: pathlib.Path,
 class TestSubscriber(unittest.TestCase):
     def test_receive_message(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            _ = setup(path=tmp_dir.path, sub_list=['sub'])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
 
-            sub = persipubsub.subscriber.Subscriber()
-            sub.init(identifier="sub", path=tmp_dir.path)
+            sub = env.new_subscriber(identifier=subscriber)
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
 
             msg = "Hello World!".encode(tests.ENCODING)
             queue.put(msg=msg)
@@ -54,13 +49,14 @@ class TestSubscriber(unittest.TestCase):
 
     def test_timeout_subscriber(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            _ = setup(path=tmp_dir.path, sub_list=['sub'])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
 
-            sub = persipubsub.subscriber.Subscriber()
-            sub.init(identifier='sub', path=tmp_dir.path)
+            sub = env.new_subscriber(identifier=subscriber)
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
 
             with sub.receive(timeout=1) as received_msg:
                 self.assertIsNone(received_msg)
@@ -71,7 +67,7 @@ class TestSubscriber(unittest.TestCase):
 
             self.assertEqual(
                 "message send after timeout and will not be popped".encode(
-                    tests.ENCODING), queue.front(identifier='sub'))
+                    tests.ENCODING), queue.front(identifier=subscriber))
 
             with sub.receive(timeout=1) as received_msg:
                 self.assertIsNotNone(received_msg)
@@ -79,17 +75,18 @@ class TestSubscriber(unittest.TestCase):
                     "message send after timeout and will not be popped".encode(
                         tests.ENCODING), received_msg)
 
-            self.assertIsNone(queue.front(identifier='sub'))
+            self.assertIsNone(queue.front(identifier=subscriber))
 
     def test_pop(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            _ = setup(path=tmp_dir.path, sub_list=['sub'])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
 
-            sub = persipubsub.subscriber.Subscriber()
-            sub.init(identifier='sub', path=tmp_dir.path)
+            sub = env.new_subscriber(identifier=subscriber)
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
 
             msg1 = "I'm a message".encode(tests.ENCODING)
             queue.put(msg=msg1)
@@ -105,25 +102,25 @@ class TestSubscriber(unittest.TestCase):
 
     def test_pop_when_empty(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            _ = setup(path=tmp_dir.path, sub_list=['sub'])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
 
-            sub = persipubsub.subscriber.Subscriber()
-            sub.init(identifier='sub', path=tmp_dir.path)
+            sub = env.new_subscriber(identifier=subscriber)
 
             self.assertRaises(RuntimeError, sub._pop)
 
     def test_receive_to_top(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
-            _ = setup(path=tmp_dir.path, sub_list=['sub'])
+            env = persipubsub.environment.Environment(path=tmp_dir.path)
 
-            queue = persipubsub.queue._Queue()
-            queue.init(path=tmp_dir.path)
+            subscriber = 'sub'
+            _ = setup(env=env, sub_list=[subscriber])
 
-            sub = persipubsub.subscriber.Subscriber()
-            sub.init(identifier='sub', path=tmp_dir.path)
+            sub = env.new_subscriber(identifier=subscriber)
+            queue = env.new_publisher().queue
+            assert isinstance(queue, persipubsub.queue._Queue)
 
             msg1 = "I'm a message".encode(tests.ENCODING)
             queue.put(msg=msg1)

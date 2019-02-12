@@ -33,7 +33,8 @@ setup(
     license='License :: OSI Approved :: MIT License',
     keywords=
     'persistent publisher subscriber lmdb MQ message queue thread-safe process-safe',
-    packages=find_packages(exclude=['tests']),
+    packages=find_packages(
+        exclude=['tests', 'examples', 'messages', 'obsolete']),
     install_requires=[
         # yapf: disable
         'typing-extensions>=3.7.2',
@@ -44,9 +45,9 @@ setup(
     extras_require={
         'dev': [
             # yapf: disable
-            'mypy==0.660',
+            'mypy==0.670',
             'pylint==2.2.2',
-            'yapf==0.25.0',
+            'yapf==0.26.0',
             'tox>=3.7.0',
             'coverage>=4.5.2,<5',
             'pydocstyle>=3.0.0,<4',
@@ -55,8 +56,8 @@ setup(
             'isort>=4.3.4,<5',
             'pygments>=2.3.1,<3',
             'twine>=1.12.1,<2',
-            'setuptools>=40.6.3,<41',
-            'wheel>=0.32.3,<1',
+            'setuptools>=40.8.0,<41',
+            'wheel>=0.33.0,<1',
             'temppathlib>=1.0.3,<2'
             # yapf: enable
         ]
