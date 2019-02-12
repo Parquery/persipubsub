@@ -9,6 +9,7 @@ import time
 import unittest
 
 import lmdb
+import logthis
 import temppathlib
 
 import persipubsub.environment
@@ -19,6 +20,41 @@ import tests.component_publisher
 import tests.component_subscriber
 
 # pylint: disable=missing-docstring
+
+FIRST_SUB_STARTED_READING = False
+
+
+def subscriber_receive_first(sub: persipubsub.subscriber.Subscriber) -> None:
+    with sub.receive() as _:
+        global FIRST_SUB_STARTED_READING  # pylint: disable=global-statement
+        FIRST_SUB_STARTED_READING = True
+        time.sleep(2)
+
+
+def subscriber_receive_second(sub: persipubsub.subscriber.Subscriber) -> None:
+    global FIRST_SUB_STARTED_READING  # pylint: disable=global-statement
+
+    start = time.time()
+    while not FIRST_SUB_STARTED_READING:
+        if time.time() - start > 10:
+            raise TimeoutError
+        time.sleep(0.1)
+
+    with sub.receive() as _:
+        if time.time() - start < 2:
+            assert isinstance(sub.queue, persipubsub.queue._Queue)  # pylint: disable=protected-access
+            assert isinstance(sub.queue.env, lmdb.Environment)
+            assert isinstance(sub.queue.env.path(), str)
+            assert isinstance(sub.identifier, str)
+            result = pathlib.Path(sub.queue.env.path()) / sub.identifier
+            result.write_text('pass')
+        else:
+            assert isinstance(sub.queue, persipubsub.queue._Queue)  # pylint: disable=protected-access
+            assert isinstance(sub.queue.env, lmdb.Environment)
+            assert isinstance(sub.queue.env.path(), str)
+            assert isinstance(sub.identifier, str)
+            result = pathlib.Path(sub.queue.env.path()) / sub.identifier
+            result.write_text('fail')
 
 
 def receive(sub: persipubsub.subscriber.Subscriber,
@@ -417,6 +453,38 @@ class TestLive(unittest.TestCase):
                     key=persipubsub.PENDING_DB, txn=txn)
                 self.assertEqual(num_processes * num_msg,
                                  txn.stat(db=pending_db)['entries'])
+
+    def test_2_subscriber_non_blocking(self) -> None:
+        with temppathlib.TemporaryDirectory() as tmp_dir:
+            env = persipubsub.environment.new_environment(path=tmp_dir.path)
+            _ = env.new_control(subscriber_ids=['sub1', 'sub2'])
+
+            pub = env.new_publisher()
+            sub1 = env.new_subscriber(identifier='sub1')
+            sub2 = env.new_subscriber(identifier='sub2')
+
+            pub.send(msg='msg for two subscriber'.encode('utf-8'))
+
+            sub1_thread = threading.Thread(
+                target=subscriber_receive_first, kwargs={
+                    'sub': sub1,
+                })
+            sub2_thread = threading.Thread(
+                target=subscriber_receive_second, kwargs={
+                    'sub': sub2,
+                })
+            sub1_thread.start()
+            sub2_thread.start()
+
+            for thread in [sub1_thread, sub2_thread]:
+                thread.join()
+
+            assert isinstance(sub2.queue, persipubsub.queue._Queue)  # pylint: disable=protected-access
+            assert isinstance(sub2.queue.env, lmdb.Environment)
+            assert isinstance(sub2.queue.env.path(), str)
+            assert isinstance(sub2.identifier, str)
+            result = pathlib.Path(sub2.queue.env.path()) / sub2.identifier
+            self.assertEqual('pass', result.read_text())
 
 
 if __name__ == '__main__':
