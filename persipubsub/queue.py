@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Store messages in a local LMDB queue."""
+"""Store messages in a local LMDB."""
 import datetime
 import enum
 import pathlib
@@ -16,7 +16,7 @@ HWM_LMDB_SIZE_BYTES = 30 * 1024**3  # type: int
 
 
 class Strategy(enum.Enum):
-    """Store possible strategies."""
+    """Hold possible strategies."""
 
     prune_first = 0
     prune_last = 1
@@ -26,17 +26,20 @@ def _parse_strategy(strategy: str) -> Strategy:
     """
     Parse overflow strategy.
 
-    :param strategy: Strategy stored in config
+    :param strategy: Strategy stored in LMDB
     :return: set overflow strategy
     """
     if Strategy.prune_first.name == strategy:
         return Strategy.prune_first
 
-    return Strategy.prune_last
+    if Strategy.prune_last.name == strategy:
+        return Strategy.prune_last
+
+    raise ValueError("Unknown strategy: '{}' choosen.".format(strategy))
 
 
 class HighWaterMark:
-    """Store high water mark limits."""
+    """Hold high water mark limits."""
 
     def __init__(self,
                  msg_timeout_secs: Optional[int] = None,
@@ -48,7 +51,7 @@ class HighWaterMark:
         :param msg_timeout_secs: time after which msg is classified as dangling
         msg (secs)
         :param max_msgs_num: maximal amount of msg
-        :param hwm_lmdb_size_bytes: high water mark for total size of lmdb
+        :param hwm_lmdb_size_bytes: high water mark for total size of LMDB
         (bytes)
         """
         self.msg_timeout_secs = MSG_TIMEOUT_SECS \
@@ -68,10 +71,10 @@ def _initialize_environment(
     Initialize the queue; the queue directory is assumed to exist.
 
     :param queue_dir: where the queue is stored
-    :param max_reader_num: maximal number of reader
+    :param max_reader_num: maximal number of readers
     :param max_db_num: maximal number of databases
     :param max_db_size_bytes: maximal size of database (bytes)
-    :return: Load or if needed create LMDB queue from directory
+    :return: Load or if needed create LMDB from directory
     """
     if not queue_dir.exists():
         raise RuntimeError(
@@ -101,7 +104,7 @@ def _initialize_environment(
 def _prune_dangling_messages_for(queue: '_Queue',
                                  subscriber_ids: List[str]) -> None:
     """
-    Prune all dangling messages for subscribers of a queue from lmdb.
+    Prune all dangling messages for subscribers of a queue from LMDB.
 
     :param queue: of which dangling messages should be pruned
     :param subscriber_ids: subscribers of which dangling msgs should be pruned
@@ -126,8 +129,8 @@ def _prune_dangling_messages_for(queue: '_Queue',
             if persipubsub.bytes_to_int(pending_subscribers_num) == 0:
                 msgs_to_delete.add(key)
 
-    # subscriber might still await this messages after the timeout.
-    # This messages needs also to be removed from all subscribers.
+    # subscriber might still await these messages after the timeout.
+    # These messages needs also to be removed from all subscribers.
     msgs_to_delete_timeout = set()
     assert isinstance(queue.hwm, HighWaterMark)
     with queue.env.begin(db=meta_db) as txn:
@@ -149,14 +152,17 @@ def _prune_dangling_messages_for(queue: '_Queue',
     with queue.env.begin(write=True) as txn:
         for sub_id in subscriber_ids:
             sub_db = queue.env.open_db(
-                key=persipubsub.encoding(sub_id), txn=txn, create=False)
+                key=persipubsub.str_to_bytes(sub_id), txn=txn, create=False)
             for key in msgs_to_delete_timeout:
                 txn.delete(key=key, db=sub_db)
 
 
 class _Queue:
     """
-    Queue messages persistently from many publishers for many subscribers.
+    Represent a message queue.
+
+    The messages come from many publishers and many subscribers.
+    They are stored persistently in an LMDB database.
 
     :ivar path: to the queue
     :vartype config_pth: pathlib.Path
@@ -180,8 +186,6 @@ class _Queue:
         self.strategy = None  # type: Optional[Strategy]
         self.subscriber_ids = None  # type: Optional[List[str]]
 
-    # pylint: disable=too-many-arguments
-    # pylint: disable=too-many-locals
     def init(self,
              path: Union[pathlib.Path, str],
              env: Optional[lmdb.Environment] = None) -> None:
@@ -189,10 +193,10 @@ class _Queue:
         Initialize the queue.
 
         :param path: where the queue is stored
-        :param max_reader_num: maximal number of reader
-        :param max_db_num: maximal number of databases
-        :param max_db_size_bytes: maximal size of database (bytes)
+        :param env: open LMDB environment
         """
+        # pylint: disable=too-many-arguments
+        # pylint: disable=too-many-locals
         self.path = path if isinstance(path, pathlib.Path) \
             else pathlib.Path(path)
 
@@ -212,19 +216,19 @@ class _Queue:
             _ = self.env.open_db(key=persipubsub.META_DB, txn=txn, create=True)
             _ = self.env.open_db(key=persipubsub.QUEUE_DB, txn=txn, create=True)
 
-        msg_timeout_secs_bytes = persipubsub.get_queue_data(
+        msg_timeout_secs_bytes = persipubsub.lookup_queue_data(
             key=persipubsub.MSG_TIMEOUT_SECS_KEY, env=self.env)
         msg_timeout_secs = msg_timeout_secs_bytes \
             if msg_timeout_secs_bytes is None else persipubsub.bytes_to_int(
             msg_timeout_secs_bytes)  # type: Optional[int]
 
-        max_msgs_num_bytes = persipubsub.get_queue_data(
+        max_msgs_num_bytes = persipubsub.lookup_queue_data(
             key=persipubsub.MAX_MSGS_NUM_KEY, env=self.env)
         max_msgs_num = max_msgs_num_bytes \
             if max_msgs_num_bytes is None else persipubsub.bytes_to_int(
             max_msgs_num_bytes)  # type: Optional[int]
 
-        hwm_lmdb_size_bytes = persipubsub.get_queue_data(
+        hwm_lmdb_size_bytes = persipubsub.lookup_queue_data(
             key=persipubsub.HWM_DB_SIZE_BYTES_KEY, env=self.env)
         hwm_lmdb_size = hwm_lmdb_size_bytes \
             if hwm_lmdb_size_bytes is None else persipubsub.bytes_to_int(
@@ -235,21 +239,21 @@ class _Queue:
             max_msgs_num=max_msgs_num,
             hwm_lmdb_size_bytes=hwm_lmdb_size)
 
-        strategy = persipubsub.get_queue_data(
+        strategy = persipubsub.lookup_queue_data(
             key=persipubsub.STRATEGY_KEY, env=self.env)
 
-        strategy_decoded = "" if strategy is None else persipubsub.decoding(
+        strategy_decoded = "" if strategy is None else persipubsub.bytes_to_str(
             encoded_str=strategy)
 
         self.strategy = _parse_strategy(strategy=strategy_decoded)
 
-        subscriber_list = persipubsub.get_queue_data(
+        subscriber_list = persipubsub.lookup_queue_data(
             key=persipubsub.SUBSCRIBER_IDS_KEY, env=self.env)
 
         if subscriber_list is None:
             self.subscriber_ids = []
         else:
-            self.subscriber_ids = persipubsub.decoding(
+            self.subscriber_ids = persipubsub.bytes_to_str(
                 encoded_str=subscriber_list).split(' ')
 
     def __enter__(self) -> '_Queue':
@@ -261,10 +265,9 @@ class _Queue:
 
     def put(self, msg: bytes) -> None:
         """
-        Put message to lmdb queue.
+        Put message to LMDB in one transaction.
 
-        :param msg: proto message send from publisher to subscribers
-        :param sub_list: List of subscribers encoded in 'utf-8'
+        :param msg: message in bytes
         :return:
         """
         # every publisher always prunes queue before sending a message.
@@ -276,33 +279,32 @@ class _Queue:
             pending_db = self.env.open_db(
                 key=persipubsub.PENDING_DB, txn=txn, create=False)
             txn.put(
-                key=persipubsub.encoding(msg_id),
+                key=persipubsub.str_to_bytes(msg_id),
                 value=persipubsub.int_to_bytes(len(self.subscriber_ids)),
                 db=pending_db)
 
             meta_db = self.env.open_db(
                 key=persipubsub.META_DB, txn=txn, create=False)
             txn.put(
-                key=persipubsub.encoding(msg_id),
+                key=persipubsub.str_to_bytes(msg_id),
                 value=persipubsub.int_to_bytes(
                     int(datetime.datetime.utcnow().timestamp())),
                 db=meta_db)
 
             data_db = self.env.open_db(
                 key=persipubsub.DATA_DB, txn=txn, create=False)
-            txn.put(key=persipubsub.encoding(msg_id), value=msg, db=data_db)
+            txn.put(key=persipubsub.str_to_bytes(msg_id), value=msg, db=data_db)
 
             for sub in self.subscriber_ids:
                 sub_db = self.env.open_db(
-                    key=persipubsub.encoding(sub), txn=txn, create=False)
-                txn.put(key=persipubsub.encoding(msg_id), db=sub_db)
+                    key=persipubsub.str_to_bytes(sub), txn=txn, create=False)
+                txn.put(key=persipubsub.str_to_bytes(msg_id), db=sub_db)
 
     def put_many_flush_once(self, msgs: List[bytes]) -> None:
         """
-        Put many message to lmdb queue.
+        Put multiple message to LMDB in one transaction.
 
-        :param msgs: proto messages send from publisher to subscribers
-        :param sub_list: List of subscribers encoded in 'utf-8'
+        :param msgs: messages in bytes
         :return:
         """
         # every publisher always prunes queue before sending a message.
@@ -324,33 +326,36 @@ class _Queue:
             for sub in self.subscriber_ids:
                 sub_dbs.add(
                     self.env.open_db(
-                        key=persipubsub.encoding(sub), txn=txn, create=False))
+                        key=persipubsub.str_to_bytes(sub),
+                        txn=txn,
+                        create=False))
 
             for msg in msgs:
                 msg_id = str(datetime.datetime.utcnow().timestamp()) + str(
                     uuid.uuid4())
 
                 txn.put(
-                    key=persipubsub.encoding(msg_id),
+                    key=persipubsub.str_to_bytes(msg_id),
                     value=persipubsub.int_to_bytes(len(self.subscriber_ids)),
                     db=pending_db)
 
                 txn.put(
-                    key=persipubsub.encoding(msg_id),
+                    key=persipubsub.str_to_bytes(msg_id),
                     value=persipubsub.int_to_bytes(
                         int(datetime.datetime.utcnow().timestamp())),
                     db=meta_db)
 
-                txn.put(key=persipubsub.encoding(msg_id), value=msg, db=data_db)
+                txn.put(
+                    key=persipubsub.str_to_bytes(msg_id), value=msg, db=data_db)
 
                 for sub_db in sub_dbs:
-                    txn.put(key=persipubsub.encoding(msg_id), db=sub_db)
+                    txn.put(key=persipubsub.str_to_bytes(msg_id), db=sub_db)
 
     def front(self, identifier: str) -> Optional[bytes]:
         """
-        Peek at next message in lmdb queue.
+        Peek at next message in LMDB.
 
-        Load from LMDB queue into memory and process msg afterwards.
+        Load from LMDB into memory and process msg afterwards.
 
         :param identifier: Subscriber ID
         :return:
@@ -358,7 +363,7 @@ class _Queue:
         assert isinstance(self.env, lmdb.Environment)
         with self.env.begin(write=False) as txn:
             sub_db = self.env.open_db(
-                key=persipubsub.encoding(identifier), txn=txn, create=False)
+                key=persipubsub.str_to_bytes(identifier), txn=txn, create=False)
             data_db = self.env.open_db(
                 key=persipubsub.DATA_DB, txn=txn, create=False)
 
@@ -382,7 +387,7 @@ class _Queue:
         assert isinstance(self.env, lmdb.Environment)
         with self.env.begin(write=True) as txn:
             sub_db = self.env.open_db(
-                key=persipubsub.encoding(identifier), txn=txn, create=False)
+                key=persipubsub.str_to_bytes(identifier), txn=txn, create=False)
             pending_db = self.env.open_db(
                 key=persipubsub.PENDING_DB, txn=txn, create=False)
 
@@ -406,6 +411,9 @@ class _Queue:
         """
         Prune dangling messages in the queue.
 
+        Definition of dangling messages:
+        - having no pending subscribers
+        - exists longer than timeout allows
         :return:
         """
         assert isinstance(self.subscriber_ids, List)
@@ -414,7 +422,7 @@ class _Queue:
 
     def check_current_lmdb_size(self) -> int:
         """
-        Check current lmdb size in bytes.
+        Check current LMDB size in bytes.
 
         Check size of data database by approximating size with multiplying page
         size with number of pages.
@@ -437,7 +445,7 @@ class _Queue:
         """
         Count number of messages in database.
 
-        Count number of messages stored in meta database.
+        Count number of messages stored in named database 'meta_db'.
 
         :return: number of messages in database
         """
@@ -514,7 +522,7 @@ class _Queue:
 
             for sub in self.subscriber_ids:
                 sub_db = self.env.open_db(
-                    key=persipubsub.encoding(sub), txn=txn, create=False)
+                    key=persipubsub.str_to_bytes(sub), txn=txn, create=False)
                 dbs.append(sub_db)
 
             for key in messages_to_delete:

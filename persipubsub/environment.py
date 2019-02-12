@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fabricate new persipubsub components."""
+"""Create new persipubsub components."""
 
 import pathlib
 from typing import Any, Optional, Sequence
@@ -13,7 +13,21 @@ import persipubsub.subscriber
 
 
 class Environment:
-    """Fabricate persipubsub components."""
+    """
+    Create persipubsub components.
+
+    Only one environment of each queue per process allowed and it's forbidden to
+    fork environment or any child components to multiple processes.
+    In that case, persipubsub is multi-threading and multi-process safe.
+    If multiple environments of the same queue are active on the same process,
+    or environment is forked to multiple processes the lock is broken and
+    correctness can't be guaranteed.
+
+    :ivar path: to the queue
+    :vartype path: pathlib.Path
+    :ivar env: only open lmdb environment of process
+    :vartype env: lmdb.Environment
+    """
 
     def __init__(self, path: pathlib.Path) -> None:
         """
@@ -43,11 +57,9 @@ class Environment:
                     strategy: persipubsub.queue.Strategy = persipubsub.queue.
                     Strategy.prune_first) -> persipubsub.control.Control:
         """
-        Fabricate a new control.
+        Create a new control.
 
         :param subscriber_ids: subscribers of the queue
-        :param max_readers: max number of reader of the lmdb
-        :param max_size: max size of the lmdb in bytes
         :param high_watermark: high water mark limit of the queue
         :param strategy: used to prune queue
         :return: Control to create and maintain queue
@@ -62,7 +74,7 @@ class Environment:
     def new_publisher(
             self, autosync: bool = False) -> persipubsub.publisher.Publisher:
         """
-        Fabricate a new publisher.
+        Create a new publisher.
 
         :param autosync: if True, store data automatically in lmdb
         :return: Publisher to send messages
@@ -74,7 +86,7 @@ class Environment:
     def new_subscriber(self,
                        identifier: str) -> persipubsub.subscriber.Subscriber:
         """
-        Fabricate a new subscriber.
+        Create a new subscriber.
 
         :param identifier: of the subscriber
         :return: Subscriber to receive messages
@@ -86,7 +98,7 @@ class Environment:
 
 def new_environment(path: pathlib.Path) -> Environment:
     """
-    Fabricate a new environment.
+    Create a new environment.
 
     :param path: path to the queue
     :return: Environment to create control, publisher and subscriber

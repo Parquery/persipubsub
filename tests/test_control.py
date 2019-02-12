@@ -57,7 +57,7 @@ class TestControl(unittest.TestCase):
             assert isinstance(control.queue, persipubsub.queue._Queue)
             assert isinstance(control.queue.env, lmdb.Environment)
 
-            control._remove_sub(sub_id="sub2", env=control.queue.env)
+            control._remove_sub(sub_id="sub2")
 
             expected_db_keys = [
                 b'data_db', b'meta_db', b'pending_db', b'queue_db', b'sub1'
@@ -190,7 +190,7 @@ class TestControl(unittest.TestCase):
         with temppathlib.TemporaryDirectory() as tmp_dir:
             control = setup(path=tmp_dir.path, sub_list=["sub"])
 
-            msg = persipubsub.encoding("hello world!")
+            msg = persipubsub.str_to_bytes("hello world!")
             assert isinstance(control.queue, persipubsub.queue._Queue)
             assert isinstance(control.queue.env, lmdb.Environment)
             control.queue.put(msg=msg)
@@ -198,7 +198,7 @@ class TestControl(unittest.TestCase):
 
             with control.queue.env.begin(write=False) as txn:
                 sub_db = control.queue.env.open_db(
-                    key=persipubsub.encoding('sub'), txn=txn, create=False)
+                    key=persipubsub.str_to_bytes('sub'), txn=txn, create=False)
                 sub_stat = txn.stat(db=sub_db)
                 self.assertEqual(2, sub_stat['entries'])
 
@@ -206,7 +206,7 @@ class TestControl(unittest.TestCase):
 
             with control.queue.env.begin(write=False) as txn:
                 sub_db = control.queue.env.open_db(
-                    key=persipubsub.encoding('sub'), txn=txn, create=False)
+                    key=persipubsub.str_to_bytes('sub'), txn=txn, create=False)
                 sub_stat = txn.stat(db=sub_db)
                 self.assertEqual(0, sub_stat['entries'])
 
@@ -214,12 +214,12 @@ class TestControl(unittest.TestCase):
         with temppathlib.TemporaryDirectory() as tmp_dir:
             control = setup(path=tmp_dir.path, sub_list=["sub"])
 
-            self.assertTrue(control.check_queue_is_initialized())
+            self.assertTrue(control.is_initialized())
 
     def test_is_not_initialized(self) -> None:
         with temppathlib.TemporaryDirectory() as tmp_dir:
             control = persipubsub.control.Control(path=tmp_dir.path)
-            self.assertFalse(control.check_queue_is_initialized())
+            self.assertFalse(control.is_initialized())
 
 
 if __name__ == '__main__':

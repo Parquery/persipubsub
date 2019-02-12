@@ -47,7 +47,7 @@ class TestPersiPubSub(unittest.TestCase):
                     value="value".encode(ENCODING),
                     db=queue_db)
 
-            data = persipubsub.get_queue_data(
+            data = persipubsub.lookup_queue_data(
                 key="key".encode(ENCODING), env=env)
         self.assertEqual(b'value', data)
 

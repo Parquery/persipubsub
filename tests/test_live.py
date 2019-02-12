@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 """Test persipubsub live."""
-
-# pylint: disable=unused-import
 import multiprocessing
 import pathlib
 import threading
@@ -9,7 +7,6 @@ import time
 import unittest
 
 import lmdb
-import logthis
 import temppathlib
 
 import persipubsub.environment

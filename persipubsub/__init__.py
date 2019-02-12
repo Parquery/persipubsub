@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-"""Distribute messages persistent from publisher to subscriber."""
-import pathlib
+"""Set default values of persipubsub and offers encoding tools."""
 from typing import Optional
 
 import lmdb
@@ -32,7 +31,7 @@ STRATEGY_KEY = "strategy".encode(ENCODING)
 SUBSCRIBER_IDS_KEY = "subscriber_ids".encode(ENCODING)
 
 
-def encoding(string: str) -> bytes:
+def str_to_bytes(string: str) -> bytes:
     """
     Encode a string with utf-8 encoding.
 
@@ -42,7 +41,7 @@ def encoding(string: str) -> bytes:
     return string.encode(encoding=ENCODING)
 
 
-def decoding(encoded_str: bytes) -> str:
+def bytes_to_str(encoded_str: bytes) -> str:
     """
     Decode bytes with utf-8 encoding.
 
@@ -72,9 +71,11 @@ def bytes_to_int(array_of_bytes: bytes) -> int:
     return int.from_bytes(bytes=array_of_bytes, byteorder=BYTES_ORDER)
 
 
-def get_queue_data(key: bytes, env: lmdb.Environment) -> Optional[bytes]:
+def lookup_queue_data(key: bytes, env: lmdb.Environment) -> Optional[bytes]:
     """
-    Get queue data.
+    Lookup set value for a given key in named database 'queue_db'.
+
+    Value stored in 'queue_db' are high water mark values and pruning strategy.
 
     :param key: for lookup
     :param env: environment that stores queue data

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Setup and control persistent distribution of messages."""
+"""Setup and control persistent queue."""
 
 import pathlib
 from typing import List, Optional, Sequence, Set
@@ -18,7 +18,7 @@ def set_hwm(hwm: persipubsub.queue.HighWaterMark,
     Set high water mark values for queue.
 
     :param hwm: high water mark values
-    :param env: queue environment
+    :param env: open LMDB environment
     :return:
     """
     with env.begin(write=True) as txn:
@@ -43,27 +43,28 @@ def set_strategy(strategy: persipubsub.queue.Strategy,
     Set pruning strategy for queue.
 
     :param strategy: pruning strategy
-    :param env: queue environment
+    :param env: open LMDB environment
     :return:
     """
     with env.begin(write=True) as txn:
         queue_db = env.open_db(persipubsub.QUEUE_DB, txn=txn, create=True)
         txn.put(
             key=persipubsub.STRATEGY_KEY,
-            value=persipubsub.encoding(str(strategy.name)),
+            value=persipubsub.str_to_bytes(str(strategy.name)),
             db=queue_db)
 
 
-@icontract.require(lambda sub_id: sub_id.find(' ') == -1)
+@icontract.require(lambda sub_id: ' ' not in sub_id)
 def _add_sub(sub_id: str, env: lmdb.Environment) -> None:
     """
-    Add a subscriber and create its lmdb.
+    Add a subscriber and create its LMDB.
 
     :param sub_id: ID of the subscriber which should be added
-    :param env: queue environment
+    :param env: open LMDB environment
     """
     with env.begin(write=True) as txn:
-        _ = env.open_db(key=persipubsub.encoding(sub_id), txn=txn, create=True)
+        _ = env.open_db(
+            key=persipubsub.str_to_bytes(sub_id), txn=txn, create=True)
 
         queue_db = env.open_db(persipubsub.QUEUE_DB, txn=txn, create=True)
         subscriber_ids = txn.get(
@@ -72,7 +73,7 @@ def _add_sub(sub_id: str, env: lmdb.Environment) -> None:
         if subscriber_ids is None:
             subscriber_list = []  # type: List[str]
         else:
-            subscriber_list = persipubsub.decoding(
+            subscriber_list = persipubsub.bytes_to_str(
                 encoded_str=subscriber_ids).split(' ')
         subscriber_set = set(subscriber_list)
         subscriber_set.add(sub_id)
@@ -84,7 +85,7 @@ def _add_sub(sub_id: str, env: lmdb.Environment) -> None:
 
 
 class Control:
-    """Control and maintain one queue."""
+    """Control and maintain a queue."""
 
     def __init__(self,
                  path: pathlib.Path,
@@ -93,6 +94,7 @@ class Control:
         Initialize control class.
 
         :param path: to the queue.
+        :param env: open LMDB environment
         """
         self.path = path
         if not self.path.exists():
@@ -109,7 +111,6 @@ class Control:
                 max_db_num=persipubsub.MAX_DB_NUM,
                 max_db_size_bytes=persipubsub.MAX_DB_SIZE_BYTES)
 
-    # pylint: disable=too-many-arguments
     def init(self,
              subscriber_ids: Optional[Sequence[str]] = None,
              high_watermark: persipubsub.queue.HighWaterMark = persipubsub.
@@ -124,7 +125,8 @@ class Control:
         :param strategy: used to prune queue
         :return:
         """
-        if self.check_queue_is_initialized():
+        # pylint: disable=too-many-arguments
+        if self.is_initialized():
             self._reinitialize_queue()
         else:
             if subscriber_ids is None:
@@ -173,7 +175,7 @@ class Control:
         )  # type: persipubsub.queue._Queue
         self.queue.init(path=self.path, env=self.env)
 
-    def check_queue_is_initialized(self) -> bool:
+    def is_initialized(self) -> bool:
         """
         Check if queue is initialized.
 
@@ -188,7 +190,7 @@ class Control:
         for key in keys:
 
             try:
-                value = persipubsub.get_queue_data(key=key, env=self.env)
+                value = persipubsub.lookup_queue_data(key=key, env=self.env)
             except lmdb.NotFoundError:
                 return False
 
@@ -204,7 +206,7 @@ class Control:
         with self.queue.env.begin(write=True) as txn:
             for sub_id in self.subscriber_ids:
                 sub_db = self.queue.env.open_db(
-                    key=persipubsub.encoding(sub_id), txn=txn, create=False)
+                    key=persipubsub.str_to_bytes(sub_id), txn=txn, create=False)
                 txn.drop(db=sub_db)
 
                 pending_db = self.queue.env.open_db(
@@ -218,7 +220,7 @@ class Control:
                 txn.drop(db=data_db, delete=False)
 
     def prune_dangling_messages(self) -> None:
-        """Prune all dangling messages from the lmdb."""
+        """Prune all dangling messages from the LMDB."""
         assert isinstance(self.queue, persipubsub.queue._Queue)
         persipubsub.queue._prune_dangling_messages_for(
             queue=self.queue, subscriber_ids=list(self.subscriber_ids))
@@ -230,14 +232,13 @@ class Control:
 
         :param sub_id: ID of the subscriber of which all messages should be
             pruned
-        :param queue: of which some subscriber's messages should be pruned
         """
         msg_of_sub = set()
         assert isinstance(self.queue, persipubsub.queue._Queue)
         assert isinstance(self.queue.env, lmdb.Environment)
         with self.queue.env.begin(write=True) as txn:
             sub_db = self.queue.env.open_db(
-                key=persipubsub.encoding(sub_id), txn=txn, create=False)
+                key=persipubsub.str_to_bytes(sub_id), txn=txn, create=False)
 
             cursor = txn.cursor(db=sub_db)
             # check if database is not empty
@@ -260,17 +261,16 @@ class Control:
                     value=persipubsub.int_to_bytes(decreased_pending_num),
                     db=pending_db)
 
-    def _remove_sub(self, sub_id: str, env: lmdb.Environment) -> None:
+    def _remove_sub(self, sub_id: str) -> None:
         """
         Remove a subscriber and delete all its messages.
 
         :param sub_id: ID of the subscriber which should be removed
-        :param queue: from which the subscriber is removed
         """
         msg_of_sub = set()
-        with env.begin(write=True) as txn:
-            sub_db = env.open_db(
-                key=persipubsub.encoding(sub_id), txn=txn, create=False)
+        with self.env.begin(write=True) as txn:
+            sub_db = self.env.open_db(
+                key=persipubsub.str_to_bytes(sub_id), txn=txn, create=False)
             cursor = txn.cursor(db=sub_db)
             # check if database is not empty
             if cursor.first():
@@ -278,7 +278,7 @@ class Control:
                     msg_of_sub.add(key)
             txn.drop(db=sub_db)
 
-            pending_db = env.open_db(
+            pending_db = self.env.open_db(
                 key=persipubsub.PENDING_DB, txn=txn, create=False)
 
             for key in msg_of_sub:
@@ -291,11 +291,12 @@ class Control:
                     value=persipubsub.int_to_bytes(decreased_pending_num),
                     db=pending_db)
 
-            queue_db = env.open_db(persipubsub.QUEUE_DB, txn=txn, create=False)
+            queue_db = self.env.open_db(
+                persipubsub.QUEUE_DB, txn=txn, create=False)
             subscriber_ids = txn.get(
                 key=persipubsub.SUBSCRIBER_IDS_KEY, db=queue_db)
 
-            subscriber_list = persipubsub.decoding(
+            subscriber_list = persipubsub.bytes_to_str(
                 encoded_str=subscriber_ids).split(' ')
             subscriber_set = set(subscriber_list)
             subscriber_set.remove(sub_id)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Receive messages persistent from publisher to subscriber."""
+"""Receive messages persistently from the queue."""
 
 import contextlib
 import datetime
@@ -17,7 +17,7 @@ import persipubsub.queue
 
 class Subscriber:
     """
-    Create Subscriber ready to receive messages.
+    Handle receiving messages stored in the queue.
 
     :ivar identifier: subscriber ID
     :vartype pub_id: str
@@ -39,6 +39,7 @@ class Subscriber:
 
         :param identifier: unique subscriber id
         :param path: path to the queue
+        :param env: open lmdb environment
         """
         self.identifier = identifier
         assert isinstance(self.identifier, str)
@@ -59,7 +60,7 @@ class Subscriber:
     def receive(self, timeout: int = 60,
                 retries: int = 10) -> Iterator[Optional[bytes]]:
         """
-        Receive messages from the publisher.
+        Receive messages from the queue.
 
         :param timeout: time waiting for a message. If none arrived until the
             timeout then None will be returned. (secs)
@@ -112,7 +113,7 @@ class Subscriber:
         assert isinstance(self.identifier, str)
         with self.queue.env.begin(write=False) as txn:
             sub_db = self.queue.env.open_db(
-                key=persipubsub.encoding(self.identifier),
+                key=persipubsub.str_to_bytes(self.identifier),
                 txn=txn,
                 create=False)
             sub_stat = txn.stat(db=sub_db)

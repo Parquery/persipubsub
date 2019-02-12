@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Distribute messages persistent from publisher to subscriber."""
+"""Publish messages to a queue and save them persistently."""
 
 import pathlib
 from typing import Any, List, Optional, Union
@@ -13,7 +13,7 @@ import persipubsub.queue
 
 class Publisher:
     """
-    Create Publisher ready to send messages.
+    Handle publishing messages to the queue.
 
     :ivar queue: on which messages are published
     :vartype queue: persipubsub.queue.Queue
@@ -34,6 +34,7 @@ class Publisher:
         Initialize.
 
         :param path: path to the queue
+        :param env: open lmdb environment
         :param autosync: if True, store data automatically in lmdb
         """
         self.queue = persipubsub.queue._Queue()  # pylint: disable=protected-access
@@ -49,18 +50,18 @@ class Publisher:
 
     def send(self, msg: bytes) -> None:
         """
-        Send message to subscribers.
+        Write one message to queue in one transaction.
 
-        :param msg: to send to all subscribers
+        :param msg: to queue that all subscribers can read it
         """
         assert isinstance(self.queue, persipubsub.queue._Queue)
         self.queue.put(msg=msg)
 
     def send_many(self, msgs: List[bytes]) -> None:
         """
-        Send messages to subscribers.
+        Write multiple messages to queue in one transaction.
 
-        :param msgs: to send to all subscribers
+        :param msgs: to queue that all subscribers can read them
         """
         assert isinstance(self.queue, persipubsub.queue._Queue)
         if self.autosync:
