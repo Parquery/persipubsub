@@ -25,7 +25,7 @@ def receive(sub: persipubsub.subscriber.Subscriber,
             num_msg: int,
             timeout: int = 2,
             sleep_time: float = 0,
-            method_timeout: int = 10) -> None:
+            method_timeout: int = 60) -> None:
     received_msg = 0
 
     start = time.time()
@@ -197,7 +197,7 @@ class TestLive(unittest.TestCase):
                     'env': env,
                     'identifier': 'sub1',
                     'num_msg': 2 * num_msg,
-                    'method_timeout': 20
+                    'method_timeout': 60
                 })
             pub2_thread = threading.Thread(
                 target=tests.component_publisher.send_thread,
@@ -212,7 +212,7 @@ class TestLive(unittest.TestCase):
                     'env': env,
                     'identifier': 'sub2',
                     'num_msg': 2 * num_msg,
-                    'method_timeout': 20
+                    'method_timeout': 60
                 })
             pub1_thread.start()
             sub1_thread.start()
@@ -281,7 +281,7 @@ class TestLive(unittest.TestCase):
                     'path': tmp_dir.path,
                     'identifier': 'sub1',
                     'num_msg': 2 * num_msg,
-                    'method_timeout': 20
+                    'method_timeout': 60
                 })
             pub2_process = multiprocessing.Process(
                 target=tests.component_publisher.send_process,
@@ -295,7 +295,7 @@ class TestLive(unittest.TestCase):
                     'path': tmp_dir.path,
                     'identifier': 'sub2',
                     'num_msg': 2 * num_msg,
-                    'method_timeout': 20
+                    'method_timeout': 60
                 })
             pub1_process.start()
             sub1_process.start()

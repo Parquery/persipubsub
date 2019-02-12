@@ -48,7 +48,7 @@ def receive_process(path: pathlib.Path,
                     timeout: int = 2,
                     retries: int = 10,
                     sleep_time: float = 0,
-                    method_timeout: int = 10) -> None:
+                    method_timeout: int = 60) -> None:
     env = persipubsub.environment.Environment(path=path)
     sub = env.new_subscriber(identifier=identifier)
 
