@@ -80,24 +80,12 @@ def _initialize_environment(
         raise RuntimeError(
             "The queue directory does not exist: {}".format(queue_dir))
 
-    # max_spare_txn: Read-only transactions to cache after becoming unused.
-    # Caching transactions avoids two allocations, one lock and linear scan of
-    # the shared environment per invocation of begin(), Transaction, get(),
-    # gets(), or cursor(). Should match the process’s maximum expected
-    # concurrent transactions (e.g. thread count).
-    # Setting max_spare_txn equals 0 doesn't allow any caching for read-only
-    # transactions to avoid the error:
-    # MDB_BAD_RSLOT: Invalid reuse of reader locktable slot.
-    # Error only occures when one publisher/subscriber is used in multiple
-    # processes. So max_spare_txn equal 1 is fine as we expect a publisher and
-    # subscriber running on the same process.
     env = lmdb.open(
         path=queue_dir.as_posix(),
         map_size=max_db_size_bytes,
         subdir=True,
         max_readers=max_reader_num,
-        max_dbs=max_db_num,
-        max_spare_txns=1)
+        max_dbs=max_db_num)
     return env
 
 

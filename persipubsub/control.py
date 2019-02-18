@@ -12,78 +12,6 @@ import persipubsub.queue
 # pylint: disable=protected-access
 
 
-def set_hwm(hwm: persipubsub.queue.HighWaterMark,
-            env: lmdb.Environment) -> None:
-    """
-    Set high water mark values for queue.
-
-    :param hwm: high water mark values
-    :param env: open LMDB environment
-    :return:
-    """
-    with env.begin(write=True) as txn:
-        queue_db = env.open_db(persipubsub.QUEUE_DB, txn=txn, create=True)
-        txn.put(
-            key=persipubsub.HWM_DB_SIZE_BYTES_KEY,
-            value=persipubsub.int_to_bytes(hwm.hwm_lmdb_size_bytes),
-            db=queue_db)
-        txn.put(
-            key=persipubsub.MAX_MSGS_NUM_KEY,
-            value=persipubsub.int_to_bytes(hwm.max_msgs_num),
-            db=queue_db)
-        txn.put(
-            key=persipubsub.MSG_TIMEOUT_SECS_KEY,
-            value=persipubsub.int_to_bytes(hwm.msg_timeout_secs),
-            db=queue_db)
-
-
-def set_strategy(strategy: persipubsub.queue.Strategy,
-                 env: lmdb.Environment) -> None:
-    """
-    Set pruning strategy for queue.
-
-    :param strategy: pruning strategy
-    :param env: open LMDB environment
-    :return:
-    """
-    with env.begin(write=True) as txn:
-        queue_db = env.open_db(persipubsub.QUEUE_DB, txn=txn, create=True)
-        txn.put(
-            key=persipubsub.STRATEGY_KEY,
-            value=persipubsub.str_to_bytes(str(strategy.name)),
-            db=queue_db)
-
-
-@icontract.require(lambda sub_id: ' ' not in sub_id)
-def _add_sub(sub_id: str, env: lmdb.Environment) -> None:
-    """
-    Add a subscriber and create its LMDB.
-
-    :param sub_id: ID of the subscriber which should be added
-    :param env: open LMDB environment
-    """
-    with env.begin(write=True) as txn:
-        _ = env.open_db(
-            key=persipubsub.str_to_bytes(sub_id), txn=txn, create=True)
-
-        queue_db = env.open_db(persipubsub.QUEUE_DB, txn=txn, create=True)
-        subscriber_ids = txn.get(
-            key=persipubsub.SUBSCRIBER_IDS_KEY, db=queue_db)
-
-        if subscriber_ids is None:
-            subscriber_list = []  # type: List[str]
-        else:
-            subscriber_list = persipubsub.bytes_to_str(
-                encoded_str=subscriber_ids).split(' ')
-        subscriber_set = set(subscriber_list)
-        subscriber_set.add(sub_id)
-        subscriber_str = " ".join(subscriber_set)
-        txn.put(
-            key=persipubsub.SUBSCRIBER_IDS_KEY,
-            value=subscriber_str.encode(persipubsub.ENCODING),
-            db=queue_db)
-
-
 class Control:
     """Control and maintain a queue."""
 
@@ -164,11 +92,11 @@ class Control:
         # 4 queues (data db, meta db, pending db, queue db)
         # + each subscriber has its own db
 
-        set_hwm(hwm=high_watermark, env=self.env)
-        set_strategy(strategy=strategy, env=self.env)
+        self.set_hwm(hwm=high_watermark)
+        self.set_strategy(strategy=strategy)
 
         for sub in self.subscriber_ids:
-            _add_sub(sub_id=sub, env=self.env)
+            self._add_sub(sub_id=sub)
 
         # load initialized queue
         self.queue = persipubsub.queue._Queue(
@@ -261,6 +189,35 @@ class Control:
                     value=persipubsub.int_to_bytes(decreased_pending_num),
                     db=pending_db)
 
+    @icontract.require(lambda sub_id: ' ' not in sub_id)
+    def _add_sub(self, sub_id: str) -> None:
+        """
+        Add a subscriber and create its LMDB.
+
+        :param sub_id: ID of the subscriber which should be added
+        """
+        with self.env.begin(write=True) as txn:
+            _ = self.env.open_db(
+                key=persipubsub.str_to_bytes(sub_id), txn=txn, create=True)
+
+            queue_db = self.env.open_db(
+                persipubsub.QUEUE_DB, txn=txn, create=True)
+            subscriber_ids = txn.get(
+                key=persipubsub.SUBSCRIBER_IDS_KEY, db=queue_db)
+
+            if subscriber_ids is None:
+                subscriber_list = []  # type: List[str]
+            else:
+                subscriber_list = persipubsub.bytes_to_str(
+                    encoded_str=subscriber_ids).split(' ')
+            subscriber_set = set(subscriber_list)
+            subscriber_set.add(sub_id)
+            subscriber_str = " ".join(subscriber_set)
+            txn.put(
+                key=persipubsub.SUBSCRIBER_IDS_KEY,
+                value=subscriber_str.encode(persipubsub.ENCODING),
+                db=queue_db)
+
     def _remove_sub(self, sub_id: str) -> None:
         """
         Remove a subscriber and delete all its messages.
@@ -307,3 +264,42 @@ class Control:
                 db=queue_db)
 
             self.subscriber_ids.remove(sub_id)
+
+    def set_hwm(self, hwm: persipubsub.queue.HighWaterMark) -> None:
+        """
+        Set high water mark values for queue.
+
+        :param hwm: high water mark values
+        :return:
+        """
+        with self.env.begin(write=True) as txn:
+            queue_db = self.env.open_db(
+                persipubsub.QUEUE_DB, txn=txn, create=True)
+            txn.put(
+                key=persipubsub.HWM_DB_SIZE_BYTES_KEY,
+                value=persipubsub.int_to_bytes(hwm.hwm_lmdb_size_bytes),
+                db=queue_db)
+            txn.put(
+                key=persipubsub.MAX_MSGS_NUM_KEY,
+                value=persipubsub.int_to_bytes(hwm.max_msgs_num),
+                db=queue_db)
+            txn.put(
+                key=persipubsub.MSG_TIMEOUT_SECS_KEY,
+                value=persipubsub.int_to_bytes(hwm.msg_timeout_secs),
+                db=queue_db)
+
+    def set_strategy(self, strategy: persipubsub.queue.Strategy) -> None:
+        """
+        Set pruning strategy for queue.
+
+        :param strategy: pruning strategy
+        :param env: open LMDB environment
+        :return:
+        """
+        with self.env.begin(write=True) as txn:
+            queue_db = self.env.open_db(
+                persipubsub.QUEUE_DB, txn=txn, create=True)
+            txn.put(
+                key=persipubsub.STRATEGY_KEY,
+                value=persipubsub.str_to_bytes(str(strategy.name)),
+                db=queue_db)

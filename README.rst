@@ -24,10 +24,8 @@ persipubsub
     :target: https://opensource.org/licenses/mit-license.php
     :alt: MIT License
 
-
-
-``persipubsub`` implements a persistent, thread-safe and process-safe `lmdb
-<http://www.lmdb.tech/doc/>`_-queue for inter-process communication.
+``persipubsub`` implements a persistent, thread-safe and process-safe queue for
+inter-process communication, based on `lmdb <http://www.lmdb.tech/doc/>`_.
 
 Primarily, we used `zeromq <http://zeromq.org//>`_ for inter-process
 communication with a slight improvement through `persizmq
@@ -92,9 +90,18 @@ The usage of the library consists of two steps: deployment and runtime
 Environment
 -----------
 
-For improve the accessibility of the library, an environment class lets you
+To improve the accessibility of the library, an environment class lets you
 create and initialize any ``persipubsub`` component which you need in
 deployment or runtime step.
+
+.. warning::
+
+  Only one environment of each queue per process allowed and it's forbidden to
+  fork environment or any child components to multiple processes.
+  In that case, persipubsub is multi-threading and multi-process safe.
+  If multiple environments of the same queue are active on the same process,
+  or environment is forked to multiple processes the lock is broken and
+  correctness can't be guaranteed.
 
 Initialize environment
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -135,11 +142,11 @@ Initialize queue
 
     # Initialize a queue with default values.
     control = env.new_control()
-    # Define all optional parameters of the queue.
+    # Or define all optional parameters of the queue.
     hwm = persipubsub.queue._HighWaterMark()
     strategy = persipubsub.queue._Strategy.prune_first
-    control = env.new_control(subscriber_ids=["sub1", "sub2"], max_readers=2,
-                              max_size=10*4096, high_watermark=hwm,
+    control = env.new_control(subscriber_ids=["sub1", "sub2"],
+                              high_watermark=hwm,
                               strategy=strategy)
 
 Prune all dangling messages
@@ -252,13 +259,13 @@ Receive a message
 Catch up with latest message
 """"""""""""""""""""""""""""
 
-Used in the case that a particular subscriber cares only about the very last
-message and other subscribers care about all the messages in the queue.
+Can be used in the case when a particular subscriber cares only about the very
+last message. The messages are not popped for other subscribers.
 
 .. note::
-    For the other use case, when you only want to store the latest message and all
-    subscribers are interested only in the latest, then use high water mark
-    max_msgs_num = 1.
+    If you want to store only the latest message for all subscribers, then use
+    high water mark max_msgs_num = 1.
+
 
 .. code-block:: python
 

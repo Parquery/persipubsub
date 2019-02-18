@@ -97,12 +97,12 @@ class Subscriber:
         """
         Pops all messages until the most recent one and receive the latest.
 
-        Used in the case that a particular subscriber cares only about the very
-        last message and other subscribers care about all the messages in the
-        queue.
-        For another use case, when you only want to store the latest message
-        and all subscribers are interested only in the latest, then use
-        high water mark max_msgs_num = 1.
+        Can be used in the case when a particular subscriber cares only about
+        the very last message. The messages are not popped for other
+        subscribers.
+
+        If you want to store only the latest message for all subscribers, then
+        use high water mark max_msgs_num = 1.
 
         :param timeout: time waiting for a message. If none arrived until the
             timeout then None will be returned. (secs)
@@ -125,8 +125,6 @@ class Subscriber:
 
         msg = None
         end = int(datetime.datetime.utcnow().timestamp()) + timeout
-        assert isinstance(self.queue, persipubsub.queue._Queue)
-        assert isinstance(self.identifier, str)
         try:
             while int(datetime.datetime.utcnow().timestamp()) <= end:
                 msg = self.queue.front(identifier=self.identifier)

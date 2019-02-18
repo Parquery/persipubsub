@@ -250,16 +250,16 @@ class TestQueue(unittest.TestCase):
             env = persipubsub.environment.Environment(path=tmp_dir.path)
 
             subscriber = 'sub'
-            _ = setup(env=env, sub_list=[subscriber])
+            control = setup(env=env, sub_list=[subscriber])
 
             hwm = persipubsub.queue.HighWaterMark(
                 msg_timeout_secs=tests.TEST_MSG_TIMEOUT,
                 max_msgs_num=tests.TEST_HWM_MSG_NUM,
                 hwm_lmdb_size_bytes=tests.TEST_HWM_LMDB_SIZE)
 
-            persipubsub.control.set_hwm(hwm=hwm, env=env.env)
-            persipubsub.control.set_strategy(
-                strategy=persipubsub.queue.Strategy.prune_first, env=env.env)
+            control.set_hwm(hwm=hwm)
+            control.set_strategy(
+                strategy=persipubsub.queue.Strategy.prune_first)
             queue = env.new_control().queue
             assert isinstance(queue, persipubsub.queue._Queue)
 
