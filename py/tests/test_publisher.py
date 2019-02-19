@@ -9,7 +9,6 @@ import temppathlib
 
 import persipubsub.control
 import persipubsub.environment
-import persipubsub.publisher
 import persipubsub.queue
 import tests
 

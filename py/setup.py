@@ -64,6 +64,6 @@ setup(
     },
     py_modules=['persipubsub', 'persipubsub_meta'],
     package_data={
-        "persipubsub": ["py.typed"],
+        "persipubsub": ["typed"],
         '.': ['LICENSE', 'README.rst']
     })

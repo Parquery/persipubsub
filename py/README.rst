@@ -87,9 +87,6 @@ Usage
 
 The usage of the library consists of two steps: deployment and runtime
 
-Python
-======
-
 Environment
 -----------
 

@@ -5,7 +5,6 @@ import pathlib
 import time
 
 import persipubsub.environment
-import persipubsub.publisher
 
 # pylint: disable=missing-docstring
 

@@ -13,6 +13,7 @@ import persipubsub.environment
 import persipubsub.publisher
 import persipubsub.queue
 import persipubsub.subscriber
+import tests
 import tests.component_publisher
 import tests.component_subscriber
 
@@ -54,11 +55,13 @@ def subscriber_receive_second(sub: persipubsub.subscriber.Subscriber) -> None:
             result.write_text('fail')
 
 
-def receive(sub: persipubsub.subscriber.Subscriber,
-            num_msg: int,
-            timeout: int = 2,
-            sleep_time: float = 0,
-            method_timeout: int = 60) -> None:
+def receive(
+        sub: persipubsub.subscriber.Subscriber,
+        num_msg: int,
+        timeout: int = 2,
+        # TODO: remove
+        sleep_time: float = 0,
+        method_timeout: int = 60) -> None:
     received_msg = 0
 
     start = time.time()
@@ -71,7 +74,7 @@ def receive(sub: persipubsub.subscriber.Subscriber,
         with sub.receive(timeout=timeout) as msg:
             if msg is not None:
                 received_msg += 1
-                time.sleep(sleep_time)
+            time.sleep(sleep_time)
 
     assert isinstance(sub.queue, persipubsub.queue._Queue)  # pylint: disable=protected-access
     assert isinstance(sub.queue.env, lmdb.Environment)

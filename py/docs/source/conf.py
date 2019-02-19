@@ -18,7 +18,6 @@ sys.path.insert(0, os.path.abspath('../..'))
 
 import persipubsub_meta
 
-
 # -- Project information -----------------------------------------------------
 
 project = persipubsub_meta.__title__

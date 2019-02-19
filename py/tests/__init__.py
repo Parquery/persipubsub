@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 """Test persipubsub."""
 
-import json
-import pathlib
 import unittest
-from typing import Any, Dict
 
 import lmdb
 import temppathlib
