@@ -34,7 +34,7 @@ setup(
     keywords=
     'persistent publisher subscriber lmdb MQ message queue thread-safe process-safe',
     packages=find_packages(
-        exclude=['tests', 'examples', 'messages', 'obsolete']),
+        exclude=['tests', 'obsolete', 'messages', 'example']),
     install_requires=[
         # yapf: disable
         'typing-extensions>=3.7.2',

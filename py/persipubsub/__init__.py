@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Set default values of persipubsub and offers encoding tools."""
-from typing import Optional
+from typing import List, Optional
 
 import lmdb
 
@@ -71,18 +71,63 @@ def bytes_to_int(array_of_bytes: bytes) -> int:
     return int.from_bytes(bytes=array_of_bytes, byteorder=BYTES_ORDER)
 
 
-def lookup_queue_data(key: bytes, env: lmdb.Environment) -> Optional[bytes]:
+class QueueData:
+    """Hold queue data."""
+
+    def __init__(self, msg_timeout_secs: int, max_msgs_num: int,
+                 hwm_db_size_bytes: int, strategy: str,
+                 subscriber_ids: List[str]) -> None:
+        """
+        Initialize.
+
+        :param msg_timeout_secs: time after which msg is classified as dangling
+            msg (secs)
+        :param max_msgs_num: maximal amount of msg
+        :param hwm_db_size_bytes: high water mark for total size of LMDB (bytes)
+        :param strategy: pruning strategy
+        :param subscriber_ids: List of subscribers
+        """
+        # pylint: disable=too-many-arguments
+        self.msg_timeout_secs = msg_timeout_secs
+        self.max_msgs_num = max_msgs_num
+        self.hwm_db_size_bytes = hwm_db_size_bytes
+        self.strategy = strategy
+        self.subscriber_ids = subscriber_ids
+
+
+def lookup_queue_data(env: lmdb.Environment) -> QueueData:
     """
-    Lookup set value for a given key in named database 'queue_db'.
+    Lookup set value in named database 'queue_db'.
 
     Value stored in 'queue_db' are high water mark values and pruning strategy.
 
-    :param key: for lookup
     :param env: environment that stores queue data
     :return: lookup result
     """
     with env.begin(write=False) as txn:
         queue_db = env.open_db(key=QUEUE_DB, txn=txn, create=False)
-        data = txn.get(key=key, db=queue_db)
+        msg_timeout_secs_bytes = txn.get(key=MSG_TIMEOUT_SECS_KEY, db=queue_db)
+        max_msgs_num_bytes = txn.get(key=MAX_MSGS_NUM_KEY, db=queue_db)
+        hwm_db_size_bytes = txn.get(key=HWM_DB_SIZE_BYTES_KEY, db=queue_db)
+        strategy_bytes = txn.get(key=STRATEGY_KEY, db=queue_db)
+        subscriber_ids_bytes = txn.get(key=SUBSCRIBER_IDS_KEY, db=queue_db)
 
-    return data  # type: ignore
+    msg_timeout_secs = bytes_to_int(msg_timeout_secs_bytes)
+    max_msgs_num = bytes_to_int(max_msgs_num_bytes)
+    hwm_db_size = bytes_to_int(hwm_db_size_bytes)
+
+    strategy = bytes_to_str(encoded_str=strategy_bytes)
+
+    if subscriber_ids_bytes is None:
+        subscriber_ids = []  # type: List[str]
+    else:
+        subscriber_ids = bytes_to_str(
+            encoded_str=subscriber_ids_bytes).split(' ')
+
+    queue_data = QueueData(
+        msg_timeout_secs=msg_timeout_secs,
+        max_msgs_num=max_msgs_num,
+        hwm_db_size_bytes=hwm_db_size,
+        strategy=strategy,
+        subscriber_ids=subscriber_ids)
+    return queue_data

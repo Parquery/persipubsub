@@ -40,13 +40,33 @@ class TestPersiPubSub(unittest.TestCase):
             with env.begin(write=True) as txn:
                 queue_db = env.open_db(key=QUEUE_DB, txn=txn)
                 txn.put(
-                    key="key".encode(ENCODING),
-                    value="value".encode(ENCODING),
+                    key=persipubsub.MSG_TIMEOUT_SECS_KEY,
+                    value=persipubsub.int_to_bytes(500),
+                    db=queue_db)
+                txn.put(
+                    key=persipubsub.MAX_MSGS_NUM_KEY,
+                    value=persipubsub.int_to_bytes(1000),
+                    db=queue_db)
+                txn.put(
+                    key=persipubsub.HWM_DB_SIZE_BYTES_KEY,
+                    value=persipubsub.int_to_bytes(1024**3),
+                    db=queue_db)
+                txn.put(
+                    key=persipubsub.STRATEGY_KEY,
+                    value=persipubsub.str_to_bytes("prune_last"),
+                    db=queue_db)
+                txn.put(
+                    key=persipubsub.SUBSCRIBER_IDS_KEY,
+                    value=persipubsub.str_to_bytes(""),
                     db=queue_db)
 
-            data = persipubsub.lookup_queue_data(
-                key="key".encode(ENCODING), env=env)
-        self.assertEqual(b'value', data)
+            queue_data = persipubsub.lookup_queue_data(env=env)
+
+        self.assertEqual(500, queue_data.msg_timeout_secs)
+        self.assertEqual(1000, queue_data.max_msgs_num)
+        self.assertEqual(1024**3, queue_data.hwm_db_size_bytes)
+        self.assertEqual("prune_last", queue_data.strategy)
+        self.assertEqual([], queue_data.subscriber_ids)
 
 
 if __name__ == '__main__':

@@ -204,45 +204,16 @@ class _Queue:
             _ = self.env.open_db(key=persipubsub.META_DB, txn=txn, create=True)
             _ = self.env.open_db(key=persipubsub.QUEUE_DB, txn=txn, create=True)
 
-        msg_timeout_secs_bytes = persipubsub.lookup_queue_data(
-            key=persipubsub.MSG_TIMEOUT_SECS_KEY, env=self.env)
-        msg_timeout_secs = msg_timeout_secs_bytes \
-            if msg_timeout_secs_bytes is None else persipubsub.bytes_to_int(
-            msg_timeout_secs_bytes)  # type: Optional[int]
-
-        max_msgs_num_bytes = persipubsub.lookup_queue_data(
-            key=persipubsub.MAX_MSGS_NUM_KEY, env=self.env)
-        max_msgs_num = max_msgs_num_bytes \
-            if max_msgs_num_bytes is None else persipubsub.bytes_to_int(
-            max_msgs_num_bytes)  # type: Optional[int]
-
-        hwm_lmdb_size_bytes = persipubsub.lookup_queue_data(
-            key=persipubsub.HWM_DB_SIZE_BYTES_KEY, env=self.env)
-        hwm_lmdb_size = hwm_lmdb_size_bytes \
-            if hwm_lmdb_size_bytes is None else persipubsub.bytes_to_int(
-            hwm_lmdb_size_bytes)  # type: Optional[int]
+        queue_data = persipubsub.lookup_queue_data(env=self.env)
 
         self.hwm = HighWaterMark(
-            msg_timeout_secs=msg_timeout_secs,
-            max_msgs_num=max_msgs_num,
-            hwm_lmdb_size_bytes=hwm_lmdb_size)
+            msg_timeout_secs=queue_data.msg_timeout_secs,
+            max_msgs_num=queue_data.max_msgs_num,
+            hwm_lmdb_size_bytes=queue_data.hwm_db_size_bytes)
 
-        strategy = persipubsub.lookup_queue_data(
-            key=persipubsub.STRATEGY_KEY, env=self.env)
+        self.strategy = _parse_strategy(strategy=queue_data.strategy)
 
-        strategy_decoded = "" if strategy is None else persipubsub.bytes_to_str(
-            encoded_str=strategy)
-
-        self.strategy = _parse_strategy(strategy=strategy_decoded)
-
-        subscriber_list = persipubsub.lookup_queue_data(
-            key=persipubsub.SUBSCRIBER_IDS_KEY, env=self.env)
-
-        if subscriber_list is None:
-            self.subscriber_ids = []
-        else:
-            self.subscriber_ids = persipubsub.bytes_to_str(
-                encoded_str=subscriber_list).split(' ')
+        self.subscriber_ids = queue_data.subscriber_ids
 
     def __enter__(self) -> '_Queue':
         """Enter the context and give the queue prepared in the constructor."""

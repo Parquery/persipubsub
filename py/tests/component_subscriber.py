@@ -16,7 +16,6 @@ def receive_thread(path: pathlib.Path,
                    num_msg: int,
                    timeout: int = 2,
                    retries: int = 10,
-                   sleep_time: float = 0,
                    method_timeout: int = 10) -> None:
     sub = env.new_subscriber(identifier=identifier)
 
@@ -32,10 +31,6 @@ def receive_thread(path: pathlib.Path,
             with sub.receive(timeout=timeout, retries=retries) as msg:
                 if msg is not None:
                     received_msg += 1
-                    time.sleep(sleep_time)
-                else:
-                    time.sleep(sleep_time)
-                    continue
 
     result = path / identifier
     result.write_text('pass')
@@ -47,7 +42,6 @@ def receive_process(path: pathlib.Path,
                     num_msg: int,
                     timeout: int = 2,
                     retries: int = 10,
-                    sleep_time: float = 0,
                     method_timeout: int = 60) -> None:
     env = persipubsub.environment.Environment(path=path)
     sub = env.new_subscriber(identifier=identifier)
@@ -64,10 +58,6 @@ def receive_process(path: pathlib.Path,
             with sub.receive(timeout=timeout, retries=retries) as msg:
                 if msg is not None:
                     received_msg += 1
-                    time.sleep(sleep_time)
-                else:
-                    time.sleep(sleep_time)
-                    continue
 
     result = path / identifier
     result.write_text('pass')

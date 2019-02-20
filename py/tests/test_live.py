@@ -55,13 +55,10 @@ def subscriber_receive_second(sub: persipubsub.subscriber.Subscriber) -> None:
             result.write_text('fail')
 
 
-def receive(
-        sub: persipubsub.subscriber.Subscriber,
-        num_msg: int,
-        timeout: int = 2,
-        # TODO: remove
-        sleep_time: float = 0,
-        method_timeout: int = 60) -> None:
+def receive(sub: persipubsub.subscriber.Subscriber,
+            num_msg: int,
+            timeout: int = 2,
+            method_timeout: int = 60) -> None:
     received_msg = 0
 
     start = time.time()
@@ -74,7 +71,6 @@ def receive(
         with sub.receive(timeout=timeout) as msg:
             if msg is not None:
                 received_msg += 1
-            time.sleep(sleep_time)
 
     assert isinstance(sub.queue, persipubsub.queue._Queue)  # pylint: disable=protected-access
     assert isinstance(sub.queue.env, lmdb.Environment)
@@ -84,12 +80,9 @@ def receive(
     result.write_text('pass')
 
 
-def send(pub: persipubsub.publisher.Publisher,
-         num_msg: int,
-         sleep_time: float = 0) -> None:
+def send(pub: persipubsub.publisher.Publisher, num_msg: int) -> None:
     for _ in range(num_msg):
         pub.send(msg="hello subscriber".encode('utf-8'))
-        time.sleep(sleep_time)
 
 
 class TestLive(unittest.TestCase):

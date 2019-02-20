@@ -109,21 +109,10 @@ class Control:
 
         :return: is initialized when all values for the given keys are set
         """
-        keys = [
-            persipubsub.MSG_TIMEOUT_SECS_KEY, persipubsub.MAX_MSGS_NUM_KEY,
-            persipubsub.HWM_DB_SIZE_BYTES_KEY, persipubsub.STRATEGY_KEY,
-            persipubsub.SUBSCRIBER_IDS_KEY
-        ]  # type: List[bytes]
-
-        for key in keys:
-
-            try:
-                value = persipubsub.lookup_queue_data(key=key, env=self.env)
-            except lmdb.NotFoundError:
-                return False
-
-            if value is None:
-                return False
+        try:
+            _ = persipubsub.lookup_queue_data(env=self.env)
+        except lmdb.NotFoundError:
+            return False
 
         return True
 
