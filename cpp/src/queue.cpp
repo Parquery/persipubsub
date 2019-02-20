@@ -2,6 +2,8 @@
 // Created by selim on 13.02.19.
 //
 
+// TODO nicer headers in files
+
 #include "queue.h"
 
 //
@@ -27,7 +29,7 @@ namespace fs = boost::filesystem;
 std::map<std::string, persipubsub::queue::Strategy> strategyMap;
 
 persipubsub::queue::Strategy persipubsub::queue::parse_strategy(const std::string &strategy) {
-    strategyMap["prune_first"] = persipubsub::queue::Strategy::prune_first;
+    strategyMap["prune_first"] = persipubsub::queue::Strategy::prune_first; // TODO use consts for strings like prune_first - please google how (const staticexpr string????)
     strategyMap["prune_last"] = persipubsub::queue::Strategy::prune_last;
 
     auto result = strategyMap.find(strategy);
@@ -40,9 +42,9 @@ persipubsub::queue::Strategy persipubsub::queue::parse_strategy(const std::strin
 
 
 lmdb::env persipubsub::queue::initialize_environment(const fs::path& queue_dir,
-                                 const unsigned int& max_reader_num,
-                                 const unsigned int& max_db_num,
-                                 const unsigned long& max_db_size_bytes) {
+                                 const unsigned int max_reader_num,
+                                 const unsigned int max_db_num,
+                                 const unsigned long max_db_size_bytes) {
 
     if (not fs::exists(queue_dir))
         throw std::runtime_error("The queue directory does not exist: " +
@@ -58,10 +60,10 @@ lmdb::env persipubsub::queue::initialize_environment(const fs::path& queue_dir,
 }
 
 
-void persipubsub::queue::prune_dangling_messages_for(persipubsub::queue::Queue * queue,
-                                 std::vector<std::string> &subscriber_ids){
+void persipubsub::queue::prune_dangling_messages_for(const persipubsub::queue::Queue& queue,
+                                 const std::vector<std::string> &subscriber_ids){
 
-    auto wtxn = lmdb::txn::begin(queue -> env_);
+    auto wtxn = lmdb::txn::begin(queue.env_);
     auto pending_dbi = lmdb::dbi::open(wtxn, persipubsub::PENDING_DB);
     auto meta_dbi = lmdb::dbi::open(wtxn, persipubsub::META_DB);
     auto data_dbi = lmdb::dbi::open(wtxn, persipubsub::DATA_DB);
@@ -78,6 +80,7 @@ void persipubsub::queue::prune_dangling_messages_for(persipubsub::queue::Queue *
         if (std::stoi(pending_subscribers_num.data()) == 0)
             msgs_to_delete.insert(std::move(pending_key));
     }
+    pending_cursor.close();
 
     time_t timer;
     time(&timer);
@@ -89,10 +92,10 @@ void persipubsub::queue::prune_dangling_messages_for(persipubsub::queue::Queue *
 
     lmdb::val meta_key, timestamp;
     while (meta_cursor.get(meta_key, timestamp, MDB_NEXT)) {
-        if (timestamp_now - std::stoi(timestamp.data()) > queue -> hwm_.msg_timeout_secs_)
+        if (timestamp_now - std::stoi(timestamp.data()) > queue.hwm_.msg_timeout_secs_)
             msgs_to_delete_timeout.insert(std::move(meta_key));
     }
-
+    meta_cursor.close();
     for (auto timeout_msg = msgs_to_delete_timeout.begin(); timeout_msg != msgs_to_delete_timeout.end(); ++timeout_msg){
         lmdb::val new_timeout_msg((*timeout_msg).data());
         msgs_to_delete.insert(std::move(new_timeout_msg));
@@ -104,15 +107,15 @@ void persipubsub::queue::prune_dangling_messages_for(persipubsub::queue::Queue *
         data_dbi.del(wtxn, *delete_it);
     }
 
-    for (auto sub_it = queue -> subscriber_ids_.begin(); sub_it != queue -> subscriber_ids_.end(); ++sub_it){
+    for (auto sub_it = queue.subscriber_ids_.begin(); sub_it != queue.subscriber_ids_.end(); ++sub_it){
         auto sub_dbi = lmdb::dbi::open(wtxn, (*sub_it).c_str());
         for (auto key_it = msgs_to_delete_timeout.begin(); key_it != msgs_to_delete_timeout.end(); ++key_it){
             sub_dbi.del(wtxn, *key_it);
         }
     }
 
-    // todo replace with this style?
-    //    for (auto sub_id : queue -> subscriber_ids_){
+    // todo replace with this style? YES
+    //    for (const auto& sub_id : queue -> subscriber_ids_){
     //        auto sub_dbi = lmdb::dbi::open(wtxn, sub_id);
     //        for (auto key_id : msgs_to_delete_timeout){
     //            sub_dbi.del(wtxn, key_id);
@@ -123,47 +126,46 @@ void persipubsub::queue::prune_dangling_messages_for(persipubsub::queue::Queue *
 }
 
 
-void persipubsub::queue::Queue::init(boost::filesystem::path path, lmdb::env env) {
+void persipubsub::queue::Queue::init(const boost::filesystem::path& path, lmdb::env env) {
     path_ = path;
 
     if (env)
-        // todo check if swap works
-        std::swap(env_, env);
+        // todo check if move works YES
+        env_ = std::move(env);
     else
         env_ = persipubsub::queue::initialize_environment(path, persipubsub::MAX_READER_NUM, persipubsub::MAX_DB_NUM, persipubsub::MAX_DB_SIZE_BYTES);
     // todo continue init
-    auto wtxn = lmdb::txn::begin(env_);
 
-    auto pending_dbi = lmdb::dbi::open(wtxn, persipubsub::PENDING_DB, MDB_CREATE);
-    auto meta_dbi = lmdb::dbi::open(wtxn, persipubsub::META_DB, MDB_CREATE);
-    auto data_dbi = lmdb::dbi::open(wtxn, persipubsub::DATA_DB, MDB_CREATE);
-    auto queue_dbi = lmdb::dbi::open(wtxn, persipubsub::QUEUE_DB, MDB_CREATE);
+    {
+        auto wtxn = lmdb::txn::begin(env_);
 
-    wtxn.commit();
+        auto pending_dbi = lmdb::dbi::open(wtxn, persipubsub::PENDING_DB, MDB_CREATE);
+        auto meta_dbi = lmdb::dbi::open(wtxn, persipubsub::META_DB, MDB_CREATE);
+        // lmdb::dbi::open(wtxn, persipubsub::META_DB, MDB_CREATE); // TODO ask marko how to deal with it
+        auto data_dbi = lmdb::dbi::open(wtxn, persipubsub::DATA_DB, MDB_CREATE);
+        auto queue_dbi = lmdb::dbi::open(wtxn, persipubsub::QUEUE_DB, MDB_CREATE);
+
+        wtxn.commit(); // TODO this will not be needed, jumping out of scope
+    }
+
 
     // todo lookup hwm data
-    unsigned int msg_timeout_secs = 500;
-    unsigned int max_msgs_num = 1000;
-    unsigned long hwm_lmdb_size = 30UL * 1024UL * 1024UL * 1024UL;
 
-    HighWaterMark hwm = HighWaterMark(msg_timeout_secs, max_msgs_num, hwm_lmdb_size);
-    std::swap(hwm_, hwm);
+    persipubsub::QueueData queue_data = persipubsub::lookup_queue_data(env_);
 
-    // todo lookup strategy data
-    std::string strategy_str = "prune_first";
+    hwm_ = HighWaterMark(queue_data.msg_timeout_secs_,
+            queue_data.max_msgs_num_, queue_data.hwm_db_size_bytes_);
 
-    strategy_ = persipubsub::queue::parse_strategy(strategy_str);
+    strategy_ = queue_data.strategy_;
 
-    // todo lookup subscriber list
-    char sub[] = "sub";
-    subscriber_ids_.push_back(sub);
+    subscriber_ids_ = std::move(queue_data.subscriber_ids_);
 }
 
 
-void persipubsub::queue::Queue::put(std::string msg, std::vector<std::string> &subscriber_ids){
+void persipubsub::queue::Queue::put(const std::string& msg, const std::vector<std::string> &subscriber_ids) const{
 
     // todo uncomment
-    // vacuum();
+    vacuum();
     // todo check UTC
     time_t timer;
     time(&timer);
@@ -199,8 +201,8 @@ void persipubsub::queue::Queue::put(std::string msg, std::vector<std::string> &s
 
 }
 
-void persipubsub::queue::Queue::put_many_flush_once(std::vector<std::string> &msgs,
-                         std::vector<std::string> &subscriber_ids){
+void persipubsub::queue::Queue::put_many_flush_once(const std::vector<std::string> &msgs,
+                         const std::vector<std::string> &subscriber_ids) const {
     vacuum();
 
     // todo check UTC
@@ -241,13 +243,12 @@ void persipubsub::queue::Queue::put_many_flush_once(std::vector<std::string> &ms
             sub_dbi_it -> put(wtxn, msg_id, sub_data);
         }
     }
-
     wtxn.commit();
 
 }
 
-// todo msg as pointer or address?
-void persipubsub::queue::Queue::front(std::string identifier, std::string& msg){
+// todo msg as pointer or address? POINTER
+void persipubsub::queue::Queue::front(const std::string& identifier, std::string* msg) const{
 
     auto rtxn = lmdb::txn::begin(env_, nullptr, MDB_RDONLY);
     auto sub_dbi = lmdb::dbi::open(rtxn, identifier.c_str());
@@ -261,7 +262,7 @@ void persipubsub::queue::Queue::front(std::string identifier, std::string& msg){
         bool found =  data_cursor.get(key, data_value, MDB_FIRST);
         if (found){
             std::string tmp_str = data_value.data();
-            std::swap(msg, tmp_str);
+            std::swap(*msg, tmp_str);
         }
         else{
             cursor.close();
@@ -273,36 +274,41 @@ void persipubsub::queue::Queue::front(std::string identifier, std::string& msg){
     rtxn.abort();
 }
 
-void persipubsub::queue::Queue::pop(std::string identifier){
+void persipubsub::queue::Queue::pop(const std::string& identifier) const {
     auto wtxn = lmdb::txn::begin(env_);
     auto sub_dbi = lmdb::dbi::open(wtxn, identifier.c_str());
     auto pending_dbi = lmdb::dbi::open(wtxn, persipubsub::PENDING_DB);
 
     auto cursor = lmdb::cursor::open(wtxn, sub_dbi);
+
     lmdb::val key, value;
 
     if (cursor.get(key, value, MDB_FIRST)) {
         sub_dbi.del(wtxn, key);
-
         lmdb::val pending_value;
         pending_dbi.get(wtxn, key, pending_value);
         auto pending_num = boost::numeric_cast<unsigned int>(std::stoi(pending_value.data()));
         pending_num--;
         lmdb::val pending_new_value((boost::lexical_cast<std::string>(pending_num)).c_str());
         pending_dbi.put(wtxn, key, pending_new_value);
+        cursor.close();
+        wtxn.commit();
     }
-    else
+    else {
+        cursor.close();
+        wtxn.commit();
         throw std::runtime_error("No message to pop");
+    }
 }
 
 
-void persipubsub::queue::Queue::prune_dangling_messages(){
-    persipubsub::queue::prune_dangling_messages_for(this, subscriber_ids_);
+void persipubsub::queue::Queue::prune_dangling_messages() const {
+    persipubsub::queue::prune_dangling_messages_for(*this, subscriber_ids_);
 }
 
 
 // todo size_t instead of long?
-unsigned long persipubsub::queue::Queue::check_current_lmdb_size(){
+unsigned long persipubsub::queue::Queue::check_current_lmdb_size() const{
     auto rtxn = lmdb::txn::begin(env_, nullptr, MDB_RDONLY);
     auto data_dbi = lmdb::dbi::open(rtxn, persipubsub::DATA_DB);
 
@@ -318,18 +324,17 @@ unsigned long persipubsub::queue::Queue::check_current_lmdb_size(){
 }
 
 
-unsigned int persipubsub::queue::Queue::count_msgs(){
+unsigned int persipubsub::queue::Queue::count_msgs() const {
     auto rtxn = lmdb::txn::begin(env_, nullptr, MDB_RDONLY);
     auto meta_dbi = lmdb::dbi::open(rtxn, persipubsub::META_DB);
 
     auto msgs_num = boost::numeric_cast<unsigned int>(meta_dbi.stat(rtxn).ms_entries);
     rtxn.abort();
-
     return msgs_num;
 }
 
 
-void persipubsub::queue::Queue::vacuum(){
+void persipubsub::queue::Queue::vacuum() const {
     prune_dangling_messages();
 
     unsigned int msgs_num = count_msgs();
@@ -342,7 +347,7 @@ void persipubsub::queue::Queue::vacuum(){
 }
 
 
-void persipubsub::queue::Queue::prune_messages(){
+void persipubsub::queue::Queue::prune_messages() const {
 
     std::set<lmdb::val> messages_to_delete;
 
@@ -386,6 +391,7 @@ void persipubsub::queue::Queue::prune_messages(){
     dbis.push_back(std::move(meta_dbi));
     dbis.push_back(std::move(data_dbi));
 
+    // TODO iterate nicely, always try to use const auto&
     for (auto sub_it = subscriber_ids_.begin(); sub_it != subscriber_ids_.end(); ++sub_it){
         auto sub_dbi = lmdb::dbi::open(wtxn, (*sub_it).c_str());
         dbis.push_back(std::move(sub_dbi));
