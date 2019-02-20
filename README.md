@@ -1,2 +1,0 @@
-# persipubsub
-TODO
