@@ -64,7 +64,16 @@ lmdb::env persipubsub::queue::initialize_environment(const fs::path& queue_dir,
 void persipubsub::queue::prune_dangling_messages_for(const persipubsub::queue::Queue& queue,
                                  const std::vector<std::string> &subscriber_ids){
 
-    auto wtxn = lmdb::txn::begin(queue.env_);
+    /*todo check mistake:
+     *  terminate called after throwing an instance of 'lmdb::runtime_error'
+        what():  mdb_txn_commit: Invalid argument
+        unknown location(0): fatal error in "test_put_to_single_subscriber": signal: SIGABRT (application abort requested)
+        /home/selim/workspace/pqry/persipubsub/cpp/test/test_queue.cpp(99): last checkpoint
+        terminate called recursively
+     */
+
+    auto wtxn = persipubsub::WriteTransaction(queue.env_).wtxn_;
+    //auto wtxn = lmdb::txn::begin(queue.env_);
     auto pending_dbi = lmdb::dbi::open(wtxn, persipubsub::PENDING_DB);
     auto meta_dbi = lmdb::dbi::open(wtxn, persipubsub::META_DB);
     auto data_dbi = lmdb::dbi::open(wtxn, persipubsub::DATA_DB);
@@ -116,7 +125,8 @@ void persipubsub::queue::prune_dangling_messages_for(const persipubsub::queue::Q
         }
     }
 
-    wtxn.commit();
+    //todo check if needed
+    //wtxn.commit();
 }
 
 // todo add transaction and cursor classes
