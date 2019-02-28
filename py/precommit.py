@@ -31,26 +31,30 @@ def main() -> int:
     if overwrite:
         subprocess.check_call([
             "yapf", "--in-place", "--style=style.yapf", "--recursive",
-            "tests", "persipubsub", "setup.py", "precommit.py"
+            "tests", "persipubsub", "setup.py", "precommit.py", "benchmarks"
         ],
             cwd=repo_root.as_posix())
     else:
         subprocess.check_call([
             "yapf", "--diff", "--style=style.yapf", "--recursive",
-            "tests", "persipubsub", "bin", "setup.py", "precommit.py"
+            "tests", "persipubsub", "bin", "setup.py", "precommit.py",
+            "benchmarks"
         ],
             cwd=repo_root.as_posix())
     # yapf: enable
 
     print("Mypy'ing...")
-    subprocess.check_call(["mypy", "--strict", "persipubsub", "tests"],
-                          cwd=repo_root.as_posix())
+    subprocess.check_call(
+        ["mypy", "--strict", "persipubsub", "tests", "benchmarks"],
+        cwd=repo_root.as_posix())
 
     print("Isort'ing...")
     isort_files = []  # type: List[str]
     for path in (repo_root / "persipubsub").glob("**/*.py"):
         isort_files.append(path.as_posix())
     for path in (repo_root / "tests").glob("**/*.py"):
+        isort_files.append(path.as_posix())
+    for path in (repo_root / "benchmarks").glob("**/*.py"):
         isort_files.append(path.as_posix())
 
     if overwrite:
@@ -71,11 +75,11 @@ def main() -> int:
 
     print("Pylint'ing...")
     subprocess.check_call(
-        ["pylint", "--rcfile=pylint.rc", "tests", "persipubsub"],
+        ["pylint", "--rcfile=pylint.rc", "tests", "persipubsub", "benchmarks"],
         cwd=repo_root.as_posix())
 
     print("Pydocstyle'ing...")
-    subprocess.check_call(["pydocstyle", "persipubsub"],
+    subprocess.check_call(["pydocstyle", "persipubsub", "benchmarks"],
                           cwd=repo_root.as_posix())
 
     print("Testing...")

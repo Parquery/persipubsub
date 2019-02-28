@@ -34,8 +34,9 @@ setup(
     license='License :: OSI Approved :: MIT License',
     keywords=
     'persistent publisher subscriber lmdb MQ message queue thread-safe process-safe',
-    packages=find_packages(
-        exclude=['tests', 'obsolete', 'messages', 'example']),
+    packages=find_packages(exclude=[
+        'tests', 'obsolete', 'messages', 'example', 'graphs', 'benchmarks'
+    ]),
     install_requires=[
         # yapf: disable
         # unfreeze astroid when this bug is fixed
@@ -62,7 +63,8 @@ setup(
             'twine>=1.12.1,<2',
             'setuptools>=40.8.0,<41',
             'wheel>=0.33.0,<1',
-            'temppathlib>=1.0.3,<2'
+            'temppathlib>=1.0.3,<2',
+            'matplotlib>=3.0.2,<4'
             # yapf: enable
         ]
     },
