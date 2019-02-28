@@ -1,0 +1,22 @@
+# Distribution / packaging
+cmake-build-debug/
+TODO
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+venv3/
+venv-doc/
+
+# IDE
+.idea
+
+# Archive
+obsolete/
+
+# Project specific
